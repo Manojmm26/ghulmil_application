@@ -1,0 +1,31 @@
+{
+  "@@locale": "en",
+  "@@context": "Application strings",
+
+  "appName": "Ghulmil Services",
+  "@appName": {
+    "description": "Application name displayed throughout the app"
+  },
+
+  "home": "Home",
+
+  "service": "Service",
+
+  "schedule": "Schedule",
+
+  "address": "Address",
+
+  "payment": "Payment",
+
+  "tracking": "Tracking",
+
+  "review": "Review",
+
+  "confirmation": "Confirmation",
+
+  "error": "Error",
+
+  "success": "Success",
+
+  "common": "Common"
+}

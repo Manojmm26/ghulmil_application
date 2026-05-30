@@ -1,0 +1,28 @@
+{
+  "@@locale": "hi",
+  "@@context": "Application strings in Hindi",
+
+  "appName": "घुलमिल सर्विसेज",
+
+  "home": "होम",
+
+  "service": "सेवा",
+
+  "schedule": "शेड्यूल",
+
+  "address": "पता",
+
+  "payment": "भुगतान",
+
+  "tracking": "ट्रैकिंग",
+
+  "review": "समीक्षा",
+
+  "confirmation": "पुष्टिकरण",
+
+  "error": "त्रुटि",
+
+  "success": "सफलता",
+
+  "common": "सामान्य"
+}
