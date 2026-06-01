@@ -18,9 +18,21 @@ class BookingSummaryCard extends StatelessWidget {
           children: [
             Text('Booking ID: ${booking.id}', style: Theme.of(context).textTheme.bodySmall),
             const Divider(height: spacing * 2),
-            _buildDetailRow(context, Icons.event, 'Scheduled for', DateFormat.yMMMd().add_jm().format(booking.scheduledAt!)),
+            _buildDetailRow(
+              context, 
+              Icons.event, 
+              'Scheduled for', 
+              booking.scheduledAt != null
+                  ? DateFormat.yMMMd().add_jm().format(booking.scheduledAt!)
+                  : 'Not scheduled',
+            ),
             const SizedBox(height: spacing),
-            _buildDetailRow(context, Icons.construction, 'Service', booking.serviceId.replaceAll('_', ' ').toUpperCase()),
+            _buildDetailRow(
+              context, 
+              Icons.construction, 
+              'Service', 
+              booking.serviceId.replaceAll('_', ' ').toUpperCase(),
+            ),
             const SizedBox(height: spacing),
             _buildDetailRow(context, Icons.person, 'Provider', 'Provider arriving soon'), // Placeholder
           ],

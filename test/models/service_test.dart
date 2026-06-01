@@ -11,7 +11,7 @@ void main() {
         'subtitle': 'Professional cleaning for your home',
         'rating': 4.7,
         'tags': ['Cleaning', 'Home', 'Verified'],
-        'imageUrl': 'https://example.com/image.png',
+        'image_url': 'https://example.com/image.png',
         'packages': [], // Using an empty list to simplify the test
       };
 

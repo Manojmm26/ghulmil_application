@@ -24,6 +24,11 @@ class BookingDraftNotifier extends Notifier<BookingDraft?> {
     state = state!.copyWith(packageId: packageId);
   }
 
+  void setNotes(String notes) {
+    if (state == null) return;
+    state = state!.copyWith(notes: notes);
+  }
+
   void setSlot(DateTime scheduledAt) {
     if (state == null) return;
     state = state!.copyWith(scheduledAt: scheduledAt);

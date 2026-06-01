@@ -4,6 +4,7 @@ import 'package:ghulmil_application/src/core/constants.dart';
 import 'package:ghulmil_application/src/core/theme.dart';
 import 'package:ghulmil_application/src/models/address.dart';
 import 'package:ghulmil_application/src/providers/booking_provider.dart';
+import 'package:ghulmil_application/src/services/location_gating_service.dart';
 import 'package:go_router/go_router.dart';
 
 enum AddressType { home, work, other }
@@ -29,31 +30,34 @@ class _AddressScreenState extends ConsumerState<AddressScreen> {
   bool _showManualEntry = false;
   bool _hasLocationPermission = false;
 
-  // Mock saved addresses
+  // Mock saved addresses localized to Noida launchpad (Gautam Buddha Nagar, UP)
   final List<Address> _savedAddresses = [
     Address(
       id: 'addr_1',
-      line1: '123 Main Street',
-      line2: 'Apartment 4B',
-      city: 'New York',
-      state: 'NY',
-      postalCode: '10001',
-      country: 'USA',
+      line1: 'C-20, Sector 62',
+      line2: 'Noida',
+      city: 'Gautam Buddha Nagar',
+      state: 'Uttar Pradesh',
+      postalCode: '201301',
+      country: 'India',
     ),
     Address(
       id: 'addr_2',
-      line1: '456 Office Building',
-      line2: 'Floor 10',
-      city: 'New York',
-      state: 'NY',
-      postalCode: '10002',
-      country: 'USA',
+      line1: 'House 145, Sector 15',
+      line2: 'Noida',
+      city: 'Gautam Buddha Nagar',
+      state: 'Uttar Pradesh',
+      postalCode: '201301',
+      country: 'India',
     ),
   ];
 
   @override
   void initState() {
     super.initState();
+    if (_savedAddresses.isNotEmpty) {
+      _selectedSavedAddressId = _savedAddresses.first.id;
+    }
     // TODO: Check location permission and services
     _checkLocationPermission();
   }
@@ -77,27 +81,49 @@ class _AddressScreenState extends ConsumerState<AddressScreen> {
   }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
+    print('DEBUG: _submit called in address_screen');
+    try {
+      if (_showManualEntry || _savedAddresses.isEmpty) {
+        if (_formKey.currentState == null || !_formKey.currentState!.validate()) {
+          print('DEBUG: manual address form validation failed');
+          return;
+        }
+      } else {
+        if (_selectedSavedAddressId == null) {
+          print('DEBUG: no saved address selected');
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please select an address or add a new one')),
+          );
+          return;
+        }
+      }
+
+      print('DEBUG: constructing Address object for id=$_selectedSavedAddressId');
+      final address = Address(
+        id: _selectedSavedAddressId ?? 'addr_${DateTime.now().millisecondsSinceEpoch}',
+        line1: _line1Controller.text.isEmpty ? _savedAddresses.firstWhere((addr) => addr.id == _selectedSavedAddressId).line1 : _line1Controller.text,
+        line2: _line2Controller.text,
+        city: _cityController.text.isEmpty ? _savedAddresses.firstWhere((addr) => addr.id == _selectedSavedAddressId).city : _cityController.text,
+        state: 'NY', // TODO: Get from location or user input
+        postalCode: _postalCodeController.text.isEmpty ? _savedAddresses.firstWhere((addr) => addr.id == _selectedSavedAddressId).postalCode : _postalCodeController.text,
+        country: 'USA', // TODO: Get from location
+        accessNotes: _accessNotesController.text.isEmpty ? null : _accessNotesController.text,
+        gateCode: _gateCodeController.text.isEmpty ? null : _gateCodeController.text,
+      );
+      print('DEBUG: constructed address=$address');
+
+      final bookingNotifier = ref.read(bookingDraftProvider.notifier);
+      bookingNotifier.setAddress(address);
+      print('DEBUG: address set in bookingDraftProvider');
+
+      // Navigate to payment screen
+      print('DEBUG: navigating to payment screen via pushNamed');
+      context.pushNamed('payment', pathParameters: {'bookingDraftId': 'draft-123'});
+      print('DEBUG: context.pushNamed called successfully');
+    } catch (e, stack) {
+      print('DEBUG: Exception in _submit: $e');
+      print('DEBUG: StackTrace: $stack');
     }
-
-    final address = Address(
-      id: _selectedSavedAddressId ?? 'addr_${DateTime.now().millisecondsSinceEpoch}',
-      line1: _line1Controller.text.isEmpty ? _savedAddresses.firstWhere((addr) => addr.id == _selectedSavedAddressId).line1 : _line1Controller.text,
-      line2: _line2Controller.text,
-      city: _cityController.text.isEmpty ? _savedAddresses.firstWhere((addr) => addr.id == _selectedSavedAddressId).city : _cityController.text,
-      state: 'NY', // TODO: Get from location or user input
-      postalCode: _postalCodeController.text.isEmpty ? _savedAddresses.firstWhere((addr) => addr.id == _selectedSavedAddressId).postalCode : _postalCodeController.text,
-      country: 'USA', // TODO: Get from location
-      accessNotes: _accessNotesController.text.isEmpty ? null : _accessNotesController.text,
-      gateCode: _gateCodeController.text.isEmpty ? null : _gateCodeController.text,
-    );
-
-    final bookingNotifier = ref.read(bookingDraftProvider.notifier);
-    bookingNotifier.setAddress(address);
-
-    // Navigate to payment screen
-    context.go('/payment/draft-123');
   }
 
   Widget _buildSavedAddressesDropdown() {
@@ -189,7 +215,16 @@ class _AddressScreenState extends ConsumerState<AddressScreen> {
                 child: TextFormField(
                   controller: _postalCodeController,
                   decoration: const InputDecoration(labelText: 'Postal Code'),
-                  validator: (value) => value!.isEmpty ? ValidationMessages.requiredField : null,
+                  keyboardType: TextInputType.number,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return ValidationMessages.requiredField;
+                    }
+                    if (!LocationGatingService.isPincodeServiced(value)) {
+                      return 'Active only in Gautam Buddha Nagar (UP)';
+                    }
+                    return null;
+                  },
                 ),
               ),
             ],

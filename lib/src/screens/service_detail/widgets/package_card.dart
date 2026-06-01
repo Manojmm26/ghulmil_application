@@ -55,7 +55,7 @@ class PackageCard extends StatelessWidget {
               const Spacer(),
               Align(
                 alignment: Alignment.centerRight,
-                child: Text('\$${price.toStringAsFixed(2)}',
+                child: Text('₹${price.toStringAsFixed(0)}',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: kPrimary)),
               ),
             ],

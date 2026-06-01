@@ -11,12 +11,13 @@ import 'package:ghulmil_application/src/screens/profile/profile_screen.dart';
 import 'package:ghulmil_application/src/screens/review/review_screen.dart';
 import 'package:ghulmil_application/src/screens/schedule/schedule_screen.dart';
 import 'package:ghulmil_application/src/screens/service_detail/service_detail_screen.dart';
+import 'package:ghulmil_application/src/screens/service_detail/requirement_intake_screen.dart';
 import 'package:ghulmil_application/src/screens/subscriptions/subscriptions_screen.dart';
 import 'package:ghulmil_application/src/screens/test_supabase_screen.dart';
 import 'package:ghulmil_application/src/screens/tracking/tracking_screen.dart';
 
 final router = GoRouter(
-  initialLocation: '/auth/signin', // Changed to start with auth flow
+  initialLocation: '/home',
   redirect: (context, state) {
     // For now, let the auth screens handle authentication state
     // In a more complex app, you might want to check auth state here
@@ -45,6 +46,13 @@ final router = GoRouter(
       path: '/service/:serviceId',
       name: 'serviceDetail',
       builder: (context, state) => ServiceDetailScreen(
+        serviceId: state.pathParameters['serviceId']!,
+      ),
+    ),
+    GoRoute(
+      path: '/service/:serviceId/intake',
+      name: 'serviceIntake',
+      builder: (context, state) => RequirementIntakeScreen(
         serviceId: state.pathParameters['serviceId']!,
       ),
     ),

@@ -34,10 +34,19 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
     final serviceAsync = ref.watch(serviceProvider(widget.serviceId));
     final bookingDraft = ref.watch(bookingDraftProvider);
     final bookingNotifier = ref.read(bookingDraftProvider.notifier);
+    final theme = Theme.of(context);
 
     final service = serviceAsync.maybeWhen(
       data: (data) => data,
       orElse: () => widget.initialService,
+    );
+
+    final isConstruction = service != null && (
+      service.title.toLowerCase().contains('structure') ||
+      service.title.toLowerCase().contains('electrical') ||
+      service.title.toLowerCase().contains('plumbing') ||
+      service.title.toLowerCase().contains('masonry') ||
+      service.title.toLowerCase().contains('carpentry')
     );
 
     return Scaffold(
@@ -61,6 +70,16 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
                 SliverAppBar(
                   expandedHeight: 220,
                   pinned: true,
+                  leading: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: CircleAvatar(
+                      backgroundColor: Colors.black.withOpacity(0.4),
+                      child: IconButton(
+                        icon: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
+                        onPressed: () => context.pop(),
+                      ),
+                    ),
+                  ),
                   flexibleSpace: FlexibleSpaceBar(
                     title: Text(
                       service.title,
@@ -107,8 +126,45 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
                                 .toList(),
                           ),
                         ],
-                        const SizedBox(height: spacing),
-                        Text('Packages', style: Theme.of(context).textTheme.titleLarge),
+                        if (isConstruction) ...[
+                          const SizedBox(height: spacingLg),
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.secondary.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: theme.colorScheme.secondary.withOpacity(0.2)),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(Icons.engineering_outlined, color: theme.colorScheme.secondary, size: 28),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Bilingual Site Intake Jargon',
+                                        style: theme.textTheme.titleMedium?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                          color: theme.colorScheme.secondary,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      const Text(
+                                        'This specialized service relies on custom site parameters (e.g. plot area, material standards, and daily-wage Raj Mistri & Beldar workforce counts). Calculate your smart estimate dynamically next.',
+                                        style: TextStyle(fontSize: 12, height: 1.4),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: spacingLg),
+                        Text(isConstruction ? 'Labour Rates' : 'Packages', style: Theme.of(context).textTheme.titleLarge),
                       ],
                     ),
                   ),
@@ -153,15 +209,24 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
           );
         },
       ),
-      bottomNavigationBar: bookingDraft?.packageId != null
+      bottomNavigationBar: (isConstruction || bookingDraft?.packageId != null)
           ? SafeArea(
               minimum: const EdgeInsets.all(spacing),
               child: ElevatedButton(
-                onPressed: () => context.goNamed(
-                  'schedule',
-                  pathParameters: {'serviceId': widget.serviceId},
-                ),
-                child: const Text('Book Now'),
+                onPressed: () {
+                  if (isConstruction) {
+                    context.pushNamed(
+                      'serviceIntake',
+                      pathParameters: {'serviceId': widget.serviceId},
+                    );
+                  } else {
+                    context.pushNamed(
+                      'schedule',
+                      pathParameters: {'serviceId': widget.serviceId},
+                    );
+                  }
+                },
+                child: Text(isConstruction ? 'Configure Requirements' : 'Book Now'),
               ),
             )
           : null,

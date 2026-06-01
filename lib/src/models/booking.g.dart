@@ -8,32 +8,34 @@ part of 'booking.dart';
 
 _Booking _$BookingFromJson(Map<String, dynamic> json) => _Booking(
   id: json['id'] as String,
-  serviceId: json['serviceId'] as String,
-  packageId: json['packageId'] as String,
-  providerId: json['providerId'] as String,
+  serviceId: json['service_id'] as String,
+  packageId: json['package_id'] as String,
+  providerId: json['provider_id'] as String?,
   status: $enumDecode(_$BookingStatusEnumMap, json['status']),
-  createdAt: DateTime.parse(json['createdAt'] as String),
-  scheduledAt: json['scheduledAt'] == null
+  createdAt: DateTime.parse(json['created_at'] as String),
+  scheduledAt: json['scheduled_at'] == null
       ? null
-      : DateTime.parse(json['scheduledAt'] as String),
+      : DateTime.parse(json['scheduled_at'] as String),
   price: json['price'] == null
       ? null
       : PriceBreakdown.fromJson(json['price'] as Map<String, dynamic>),
   provider: json['provider'] == null
       ? null
       : Provider.fromJson(json['provider'] as Map<String, dynamic>),
+  notes: json['special_instructions'] as String?,
 );
 
 Map<String, dynamic> _$BookingToJson(_Booking instance) => <String, dynamic>{
   'id': instance.id,
-  'serviceId': instance.serviceId,
-  'packageId': instance.packageId,
-  'providerId': instance.providerId,
+  'service_id': instance.serviceId,
+  'package_id': instance.packageId,
+  'provider_id': instance.providerId,
   'status': _$BookingStatusEnumMap[instance.status]!,
-  'createdAt': instance.createdAt.toIso8601String(),
-  'scheduledAt': instance.scheduledAt?.toIso8601String(),
+  'created_at': instance.createdAt.toIso8601String(),
+  'scheduled_at': instance.scheduledAt?.toIso8601String(),
   'price': instance.price?.toJson(),
   'provider': instance.provider?.toJson(),
+  'special_instructions': instance.notes,
 };
 
 const _$BookingStatusEnumMap = {

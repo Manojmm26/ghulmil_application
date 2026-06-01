@@ -9,14 +9,15 @@ part 'booking.g.dart';
 abstract class Booking with _$Booking {
   const factory Booking({
     required String id,
-    required String serviceId,
-    required String packageId,
-    required String providerId,
+    @JsonKey(name: 'service_id') required String serviceId,
+    @JsonKey(name: 'package_id') required String packageId,
+    @JsonKey(name: 'provider_id') String? providerId,
     required BookingStatus status,
-    required DateTime createdAt,
-    DateTime? scheduledAt,
+    @JsonKey(name: 'created_at') required DateTime createdAt,
+    @JsonKey(name: 'scheduled_at') DateTime? scheduledAt,
     PriceBreakdown? price,
     Provider? provider,
+    @JsonKey(name: 'special_instructions') String? notes,
   }) = _Booking;
 
   factory Booking.fromJson(Map<String, dynamic> json) => _$BookingFromJson(json);

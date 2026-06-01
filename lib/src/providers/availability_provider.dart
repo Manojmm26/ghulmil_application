@@ -7,6 +7,9 @@ typedef AvailabilityParams = ({String serviceId, DateTime date});
 
 final availabilityProvider =
     FutureProvider.family<List<Slot>, AvailabilityParams>((ref, params) async {
+  print('DEBUG: availabilityProvider called for serviceId=${params.serviceId}, date=${params.date}');
   final apiClient = ref.watch(apiClientProvider);
-  return apiClient.getAvailability(params.serviceId, params.date);
+  final result = await apiClient.getAvailability(params.serviceId, params.date);
+  print('DEBUG: availabilityProvider returning ${result.length} slots');
+  return result;
 });

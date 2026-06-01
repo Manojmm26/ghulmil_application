@@ -3,7 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ghulmil_application/app.dart';
 import 'package:ghulmil_application/src/screens/service_detail/widgets/package_card.dart';
-import 'package:ghulmil_application/src/widgets/category_tile.dart';
+import 'package:ghulmil_application/src/widgets/service_card.dart';
+import 'package:ghulmil_application/src/core/supabase_initializer.dart';
 import 'package:integration_test/integration_test.dart';
 
 void main() {
@@ -11,20 +12,27 @@ void main() {
 
   group('end-to-end test', () {
     testWidgets('should complete the full booking flow', (WidgetTester tester) async {
+      // Initialize Supabase before starting the app
+      await SupabaseInitializer.initialize();
+
       // Start the app
       await tester.pumpWidget(const ProviderScope(child: App()));
       await tester.pumpAndSettle();
 
-      // Find the 'Household Cleaning' category tile and tap it.
-      final categoryTile = find.widgetWithText(CategoryTile, 'Household Cleaning');
-      expect(categoryTile, findsOneWidget);
-      await tester.tap(categoryTile);
+      // Find the 'Premium Home Deep Clean' service card and tap it.
+      final serviceCard = find.widgetWithText(ServiceCard, 'Premium Home Deep Clean');
+      expect(serviceCard, findsOneWidget);
+      await tester.ensureVisible(serviceCard);
+      await tester.pumpAndSettle();
+      await tester.tap(serviceCard);
       await tester.pumpAndSettle();
 
       // We are now on the ServiceDetailScreen. Find and tap the 'Book Now' button.
       // First, select a package to enable it.
-      final packageCard = find.widgetWithText(PackageCard, 'Standard Clean');
+      final packageCard = find.widgetWithText(PackageCard, 'Essentials Deep Clean');
       expect(packageCard, findsOneWidget);
+      await tester.ensureVisible(packageCard);
+      await tester.pumpAndSettle();
       await tester.tap(packageCard);
       await tester.pumpAndSettle();
 

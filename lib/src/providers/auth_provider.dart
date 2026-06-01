@@ -3,10 +3,16 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:ghulmil_application/src/services/auth_service.dart';
+import 'package:ghulmil_application/src/providers/api_client_provider.dart';
 
 // Auth service provider
 final authServiceProvider = Provider<AuthService>((ref) {
   return AuthService();
+});
+
+final userProfileProvider = FutureProvider.autoDispose<Map<String, dynamic>?>((ref) async {
+  final apiClient = ref.watch(apiClientProvider);
+  return apiClient.getUserProfile();
 });
 
 // Auth state - using simple state management
