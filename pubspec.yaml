@@ -40,3 +40,9 @@ flutter:
   generate: true
   assets:
     - assets/images/
+
+dependency_overrides:
+  analyzer: 7.7.1
+  retrofit: 4.7.2
+  retrofit_generator: 10.0.5
+
