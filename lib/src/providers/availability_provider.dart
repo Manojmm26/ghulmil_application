@@ -6,7 +6,7 @@ import 'package:ghulmil_application/src/providers/api_client_provider.dart';
 typedef AvailabilityParams = ({String serviceId, DateTime date});
 
 final availabilityProvider =
-    FutureProvider.family<List<Slot>, AvailabilityParams>((ref, params) async {
+    FutureProvider.autoDispose.family<List<Slot>, AvailabilityParams>((ref, params) async {
   print('DEBUG: availabilityProvider called for serviceId=${params.serviceId}, date=${params.date}');
   final apiClient = ref.watch(apiClientProvider);
   final result = await apiClient.getAvailability(params.serviceId, params.date);

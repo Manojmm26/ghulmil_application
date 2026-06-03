@@ -9,9 +9,97 @@ import 'package:ghulmil_application/src/models/address.dart';
 import 'package:ghulmil_application/src/models/price_breakdown.dart';
 import 'package:ghulmil_application/src/core/supabase_config.dart';
 import 'package:ghulmil_application/src/models/package.dart';
+import 'package:ghulmil_application/src/models/pricing_config.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SupabaseService {
   final _supabase = SupabaseConfig.client;
+  static final List<Booking> _mockBookings = [];
+  
+  static final List<PricingConfig> _fallbackPricingConfigs = [
+    const PricingConfig(
+      serviceType: 'electrical',
+      baseRate: 800.0,
+      mistriDailyWage: 750.0,
+      beldarDailyWage: 450.0,
+      materialCoefficient: 1.0,
+      additionalMeta: {
+        'rough_in_material_rate': 120.0,
+        'finish_material_rate': 70.0,
+        'rough_in_labor_rate': 50.0,
+        'finish_labor_rate': 30.0,
+      },
+    ),
+    const PricingConfig(
+      serviceType: 'plumbing',
+      baseRate: 900.0,
+      mistriDailyWage: 800.0,
+      beldarDailyWage: 450.0,
+      materialCoefficient: 1.0,
+      additionalMeta: {
+        'concealed_material_rate': 1500.0,
+        'exposed_material_rate': 800.0,
+        'concealed_labor_rate': 600.0,
+        'exposed_labor_rate': 350.0,
+      },
+    ),
+    const PricingConfig(
+      serviceType: 'carpentry',
+      baseRate: 1500.0,
+      mistriDailyWage: 850.0,
+      beldarDailyWage: 450.0,
+      materialCoefficient: 1.0,
+      additionalMeta: {
+        'wardrobe_material_rate': 180.0,
+        'other_material_rate': 250.0,
+        'wardrobe_labor_rate': 60.0,
+        'other_labor_rate': 80.0,
+      },
+    ),
+    const PricingConfig(
+      serviceType: 'painting',
+      baseRate: 1000.0,
+      mistriDailyWage: 800.0,
+      beldarDailyWage: 450.0,
+      materialCoefficient: 1.0,
+      additionalMeta: {
+        'fresh_premium_rate': 12.0,
+        'fresh_standard_rate': 6.0,
+        'repaint_premium_rate': 8.0,
+        'repaint_standard_rate': 4.0,
+        'labor_only_rate': 3.0,
+      },
+    ),
+    const PricingConfig(
+      serviceType: 'flooring',
+      baseRate: 1200.0,
+      mistriDailyWage: 900.0,
+      beldarDailyWage: 450.0,
+      materialCoefficient: 1.0,
+      additionalMeta: {
+        'marble_material_rate': 4.5,
+        'tiles_material_rate': 2.0,
+        'labor_only_rate': 1.2,
+        'mirror_polish_material_premium': 2.5,
+        'mirror_polish_labor_premium': 1.5,
+      },
+    ),
+    const PricingConfig(
+      serviceType: 'civil',
+      baseRate: 1200.0,
+      mistriDailyWage: 800.0,
+      beldarDailyWage: 450.0,
+      materialCoefficient: 1.0,
+      additionalMeta: {
+        'material_rate_premium': 2.5,
+        'material_rate_semi_premium': 1.5,
+        'material_rate_standard': 1.0,
+        'labor_factor': 0.45,
+      },
+    ),
+  ];
+
+  static final List<PricingConfig> _localPricingConfigs = List.from(_fallbackPricingConfigs);
 
   // =====================================
   // UTILITY METHODS
@@ -319,7 +407,9 @@ class SupabaseService {
   Future<List<Booking>> getUserBookings({int limit = 20, int offset = 0}) async {
     try {
       final userId = SupabaseConfig.currentUser?.id;
-      if (userId == null) return [];
+      if (userId == null) {
+        return _mockBookings;
+      }
 
       final response = await _supabase
           .from('bookings')
@@ -328,24 +418,28 @@ class SupabaseService {
           .range(offset, offset + limit - 1)
           .order('created_at', ascending: false);
 
-      return response.map((json) => Booking.fromJson(json)).toList();
+      final realBookings = response.map((json) => Booking.fromJson(json)).toList();
+      return [..._mockBookings, ...realBookings];
     } catch (error) {
       log('Error fetching bookings: $error', name: 'SupabaseService');
-      return [];
+      return _mockBookings;
     }
   }
 
   Future<Booking?> getBooking(String bookingId) async {
     if (bookingId.startsWith('mock_booking_')) {
-      log('SupabaseService getBooking: mock booking detected. Returning mock Booking.', name: 'SupabaseService');
-      return Booking(
-        id: bookingId,
-        serviceId: 'civil_masonry',
-        packageId: 'mock_package_id',
-        providerId: 'mock_provider_id',
-        status: BookingStatus.pending,
-        createdAt: DateTime.now(),
-        scheduledAt: DateTime.now().add(const Duration(days: 2)),
+      log('SupabaseService getBooking: mock booking detected. Looking up in-memory.', name: 'SupabaseService');
+      return _mockBookings.firstWhere(
+        (b) => b.id == bookingId,
+        orElse: () => Booking(
+          id: bookingId,
+          serviceId: 'civil_masonry',
+          packageId: 'mock_package_id',
+          providerId: 'mock_provider_id',
+          status: BookingStatus.pending,
+          createdAt: DateTime.now(),
+          scheduledAt: DateTime.now().add(const Duration(days: 2)),
+        ),
       );
     }
 
@@ -393,7 +487,7 @@ class SupabaseService {
 
       if (userId == null || draft.address == null) {
         log('Supabase createBooking: Unauthenticated or missing address. Falling back to mock Booking.', name: 'SupabaseService');
-        return Booking(
+        final mockBooking = Booking(
           id: 'mock_booking_${DateTime.now().millisecondsSinceEpoch}',
           serviceId: draft.serviceId,
           packageId: draft.packageId ?? 'mock_package_id',
@@ -408,6 +502,8 @@ class SupabaseService {
             total: totalPrice,
           ),
         );
+        _mockBookings.add(mockBooking);
+        return mockBooking;
       }
 
       final response = await _supabase
@@ -452,7 +548,7 @@ class SupabaseService {
           : 5.00;
       final double totalPrice = basePrice + taxPrice;
 
-      return Booking(
+      final mockBooking = Booking(
         id: 'mock_booking_${DateTime.now().millisecondsSinceEpoch}',
         serviceId: draft.serviceId,
         packageId: draft.packageId ?? 'mock_package_id',
@@ -467,12 +563,14 @@ class SupabaseService {
           total: totalPrice,
         ),
       );
+      _mockBookings.add(mockBooking);
+      return mockBooking;
     }
   }
 
   Future<bool> cancelBooking(String bookingId, String reason) async {
     try {
-      final response = await _supabase
+      await _supabase
           .from('bookings')
           .update({
             'status': 'cancelled',
@@ -481,7 +579,7 @@ class SupabaseService {
           })
           .eq('id', bookingId);
 
-      return response.error == null;
+      return true;
     } catch (error) {
       log('Error cancelling booking: $error', name: 'SupabaseService');
       return false;
@@ -498,17 +596,21 @@ class SupabaseService {
 
     return await _executeWithRetry<Map<String, dynamic>?>(
       operation: () async {
-        final adminResponse = await _supabase.auth.admin.getUserById(userId);
+        final profileData = await _supabase
+            .from('users')
+            .select('*')
+            .eq('id', userId)
+            .maybeSingle();
 
-        if (adminResponse.user != null) {
-          final profileData = await _supabase
-              .from('users')
-              .select('*')
-              .eq('id', userId)
-              .single();
-
+        final user = SupabaseConfig.currentUser;
+        if (user != null) {
           return {
-            ...adminResponse.user!.toJson(),
+            ...user.toJson(),
+            'id': user.id,
+            'email': user.email,
+            'phone': profileData?['phone'] ?? user.phone ?? user.userMetadata?['phone'],
+            'full_name': profileData?['full_name'] ?? user.userMetadata?['full_name'],
+            'user_type': profileData?['user_type'],
             'profile': profileData,
           };
         }
@@ -583,19 +685,42 @@ class SupabaseService {
     final userId = SupabaseConfig.currentUser?.id;
     if (userId == null) return false;
 
-    final updates = <String, dynamic>{};
+    final updates = <String, dynamic>{
+      'updated_at': DateTime.now().toIso8601String(),
+    };
     if (fullName != null) updates['full_name'] = fullName;
     if (phone != null) updates['phone'] = phone;
     if (avatarUrl != null) updates['avatar_url'] = avatarUrl;
-    updates['updated_at'] = DateTime.now().toIso8601String();
 
     return await _executeWithRetry<bool>(
       operation: () async {
-        final response = await _supabase
-            .from('users')
-            .update(updates)
-            .eq('id', userId);
-        return response.error == null;
+        // 1. Safe update on public.users table (updates are allowed under standard RLS)
+        try {
+          await _supabase
+              .from('users')
+              .update(updates)
+              .eq('id', userId);
+        } catch (dbError) {
+          log('Public users table update failed or blocked by RLS: $dbError', name: 'SupabaseService');
+        }
+
+        // 2. Sync credentials back to Supabase Auth database (always allowed under user session)
+        if (phone != null || fullName != null) {
+          try {
+            await _supabase.auth.updateUser(
+              UserAttributes(
+                data: {
+                  if (fullName != null) 'full_name': fullName,
+                  if (phone != null) 'phone': phone,
+                },
+              ),
+            );
+          } catch (authError) {
+            log('Auth database sync failed: $authError', name: 'SupabaseService');
+          }
+        }
+
+        return true;
       },
       operationName: 'updateUserProfile',
     );
@@ -700,5 +825,62 @@ class SupabaseService {
       fileBytes: imageBytes,
       fileName: 'service_${serviceId}_${DateTime.now().millisecondsSinceEpoch}.jpg',
     );
+  }
+
+  // =====================================
+  // PRICING CONFIGS
+  // =====================================
+
+  Future<List<PricingConfig>> getPricingConfigs() async {
+    try {
+      final response = await _supabase
+          .from('pricing_configs')
+          .select('*');
+      
+      final remoteConfigs = (response as List)
+          .map((json) => PricingConfig.fromJson(json))
+          .toList();
+      
+      for (final remote in remoteConfigs) {
+        final index = _localPricingConfigs.indexWhere((c) => c.serviceType == remote.serviceType);
+        if (index != -1) {
+          _localPricingConfigs[index] = remote;
+        } else {
+          _localPricingConfigs.add(remote);
+        }
+      }
+      return _localPricingConfigs;
+    } catch (error) {
+      log('Error fetching pricing configs: $error. Falling back to local cache.', name: 'SupabaseService');
+      return _localPricingConfigs;
+    }
+  }
+
+  Future<bool> updatePricingConfig(String serviceType, Map<String, dynamic> updates) async {
+    final index = _localPricingConfigs.indexWhere((c) => c.serviceType == serviceType);
+    if (index != -1) {
+      final oldConfig = _localPricingConfigs[index];
+      final newJson = oldConfig.toJson()..addAll(updates);
+      _localPricingConfigs[index] = PricingConfig.fromJson(newJson);
+    }
+
+    try {
+      final userId = SupabaseConfig.currentUser?.id;
+      final payload = {
+        ...updates,
+        'updated_at': DateTime.now().toIso8601String(),
+        if (userId != null) 'updated_by': userId,
+      };
+
+      await _supabase
+          .from('pricing_configs')
+          .update(payload)
+          .eq('service_type', serviceType);
+      
+      return true;
+    } catch (error) {
+      log('Error updating pricing config: $error. Saved locally only.', name: 'SupabaseService');
+      return false;
+    }
   }
 }

@@ -1,8 +1,12 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ghulmil_application/src/core/constants.dart';
+import 'package:ghulmil_application/src/core/supabase_config.dart';
+import 'package:ghulmil_application/src/providers/auth_provider.dart';
 import 'package:ghulmil_application/src/screens/address/address_screen.dart';
 import 'package:ghulmil_application/src/screens/auth/sign_in_screen.dart';
 import 'package:ghulmil_application/src/screens/auth/sign_up_screen.dart';
+import 'package:ghulmil_application/src/screens/auth/splash_screen.dart';
 import 'package:ghulmil_application/src/screens/confirmation/confirmation_screen.dart';
 import 'package:ghulmil_application/src/screens/emergency/emergency_flow_screen.dart';
 import 'package:ghulmil_application/src/screens/home/home_screen.dart';
@@ -15,15 +19,47 @@ import 'package:ghulmil_application/src/screens/service_detail/requirement_intak
 import 'package:ghulmil_application/src/screens/subscriptions/subscriptions_screen.dart';
 import 'package:ghulmil_application/src/screens/test_supabase_screen.dart';
 import 'package:ghulmil_application/src/screens/tracking/tracking_screen.dart';
+import 'package:ghulmil_application/src/screens/admin/admin_pricing_config_screen.dart';
 
 final router = GoRouter(
-  initialLocation: '/home',
+  initialLocation: '/',
   redirect: (context, state) {
-    // For now, let the auth screens handle authentication state
-    // In a more complex app, you might want to check auth state here
+    final path = state.uri.path;
+    if (path.startsWith('/admin')) {
+      final user = SupabaseConfig.currentUser;
+      if (user == null) {
+        return '/auth/signin';
+      }
+
+      // Check user metadata first (synchronous & fast)
+      final userMetadataType = user.userMetadata?['user_type'];
+      if (userMetadataType == 'admin') {
+        return null;
+      }
+
+      // Check database profile via Riverpod if already loaded
+      try {
+        final container = ProviderScope.containerOf(context);
+        final profileVal = container.read(userProfileProvider).value;
+        if (profileVal != null) {
+          if (profileVal['user_type'] == 'admin') {
+            return null;
+          }
+          return '/home';
+        }
+      } catch (_) {}
+
+      // If we cannot verify they are an admin, redirect to home to be safe
+      return '/home';
+    }
     return null;
   },
   routes: [
+    GoRoute(
+      path: '/',
+      name: 'splash',
+      builder: (context, state) => const SplashScreen(),
+    ),
     GoRoute(
       path: '/auth/signin',
       name: 'signin',
@@ -100,6 +136,11 @@ final router = GoRouter(
       path: '/profile',
       name: 'profile',
       builder: (context, state) => const ProfileScreen(),
+    ),
+    GoRoute(
+      path: '/admin/pricing',
+      name: 'adminPricing',
+      builder: (context, state) => const AdminPricingConfigScreen(),
     ),
     GoRoute(
       path: '/rebook/:bookingId',

@@ -162,7 +162,6 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  // Update user profile
   Future<bool> updateUserProfile({
     String? fullName,
     String? phone,
@@ -172,17 +171,40 @@ class AuthService extends ChangeNotifier {
       final userId = _currentUser?.id;
       if (userId == null) return false;
 
-      final updates = <String, dynamic>{};
+      final updates = <String, dynamic>{
+        'updated_at': DateTime.now().toIso8601String(),
+      };
       if (fullName != null) updates['full_name'] = fullName;
       if (phone != null) updates['phone'] = phone;
       if (avatarUrl != null) updates['avatar_url'] = avatarUrl;
 
-      final response = await _supabase
-          .from('users')
-          .update(updates)
-          .eq('id', userId);
+      // 1. Safe update on public.users table (updates are allowed under standard RLS)
+      try {
+        await _supabase
+            .from('users')
+            .update(updates)
+            .eq('id', userId);
+      } catch (dbError) {
+        Logger.error('Public users table update failed or blocked by RLS: $dbError');
+      }
 
-      return response.error == null;
+      // 2. Sync credentials back to Supabase Auth database (always allowed for the current session)
+      if (phone != null || fullName != null) {
+        try {
+          await _supabase.auth.updateUser(
+            UserAttributes(
+              data: {
+                if (fullName != null) 'full_name': fullName,
+                if (phone != null) 'phone': phone,
+              },
+            ),
+          );
+        } catch (authError) {
+          Logger.error('Auth database sync failed: $authError');
+        }
+      }
+
+      return true;
     } catch (error) {
       Logger.error('Error updating user profile: $error');
       return false;

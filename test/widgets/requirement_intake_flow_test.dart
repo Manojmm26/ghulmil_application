@@ -310,15 +310,17 @@ void main() {
       await tester.pumpAndSettle();
 
       // Verify starting at step 0
-      expect(find.text('1'), findsOneWidget);
+      expect(find.text('Material Kaun Laayega? (Material Supply)'), findsOneWidget);
+      expect(find.text('Continue'), findsOneWidget);
+      expect(find.text('Verify & Book'), findsNothing);
       
       // Tap Continue to go to Step 1
       await tester.tap(find.text('Continue'));
       await tester.pumpAndSettle();
 
-      // Tap Continue to go to Step 2
-      await tester.tap(find.text('Continue'));
-      await tester.pumpAndSettle();
+      // On Step 1, verify that 'Verify & Book' is visible
+      expect(find.text('Verify & Book'), findsOneWidget);
+      expect(find.text('Continue'), findsNothing);
 
       // Tap AppBar back button (leading icon)
       final backButton = find.byIcon(Icons.arrow_back);
@@ -326,15 +328,9 @@ void main() {
       await tester.tap(backButton);
       await tester.pumpAndSettle();
 
-      // Should have regressed back to Step 1
+      // Should have regressed back to Step 0
       expect(find.text('Verify & Book'), findsNothing);
       expect(find.text('Continue'), findsOneWidget);
-
-      // Tap AppBar back button again
-      await tester.tap(backButton);
-      await tester.pumpAndSettle();
-
-      // Should have regressed back to Step 0
       expect(find.text('Material Kaun Laayega? (Material Supply)'), findsOneWidget);
     });
   });

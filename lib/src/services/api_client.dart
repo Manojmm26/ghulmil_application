@@ -4,6 +4,7 @@ import 'package:ghulmil_application/src/models/booking.dart';
 import 'package:ghulmil_application/src/models/booking_draft.dart';
 import 'package:ghulmil_application/src/models/slot.dart';
 import 'package:ghulmil_application/src/models/address.dart';
+import 'package:ghulmil_application/src/models/pricing_config.dart';
 import 'package:ghulmil_application/src/services/supabase_service.dart';
 
 class ApiClient {
@@ -108,4 +109,16 @@ class ApiClient {
   Future<String?> uploadServiceImage(List<int> imageBytes, String serviceId) async {
     return await _supabaseService.uploadServiceImage(imageBytes, serviceId);
   }
-}  // End of ApiClient class
+
+  // =====================================
+  // PRICING CONFIGS
+  // =====================================
+
+  Future<List<PricingConfig>> getPricingConfigs() async {
+    return await _supabaseService.getPricingConfigs();
+  }
+
+  Future<bool> updatePricingConfig(String serviceType, Map<String, dynamic> updates) async {
+    return await _supabaseService.updatePricingConfig(serviceType, updates);
+  }
+}

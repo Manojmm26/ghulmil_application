@@ -16,7 +16,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   String _selectedCategory = 'All';
   String _searchQuery = '';
-  bool _isNoidaLocation = true; // Toggle for launch district gating demo
+  bool _isPithoragarhLocation = true; // Toggle for launch district gating demo
   final _searchController = TextEditingController();
 
   final List<Map<String, dynamic>> _categories = [
@@ -72,7 +72,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   void _handleServiceTap(Service service) {
-    if (!_isNoidaLocation) {
+    if (!_isPithoragarhLocation) {
       _showEarlyAccessDrawer();
       return;
     }
@@ -84,7 +84,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   void _handleCategoryTap(String categoryName) {
-    if (!_isNoidaLocation) {
+    if (!_isPithoragarhLocation) {
       _showEarlyAccessDrawer();
       return;
     }
@@ -133,13 +133,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               const Icon(Icons.rocket_launch, color: kAccent, size: 60),
               const SizedBox(height: spacing),
               Text(
-                'Ghulmil is Coming Soon to Your Sector! 🚀',
+                'Ghulmil is Coming Soon to Your City! 🚀',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: spacingSm),
               const Text(
-                'We are currently active only in Noida (Gautam Buddha Nagar, UP) and expanding rapid-response professional Mistri services to your neighborhood soon.',
+                'We are currently active only in Pithoragarh District (Uttarakhand) and expanding rapid-response professional Mistri services to your neighborhood soon.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: kMuted, fontSize: 13),
               ),
@@ -236,35 +236,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   ),
                                   ListTile(
                                     leading: const Icon(Icons.check_circle, color: kSuccess),
-                                    title: const Text('Sector 62, Noida (Gautam Buddha Nagar, UP)'),
+                                    title: const Text('Siltham, Pithoragarh (Uttarakhand)'),
                                     subtitle: const Text('Active Service Area (100% Operations)'),
-                                    trailing: _isNoidaLocation 
+                                    trailing: _isPithoragarhLocation 
                                         ? const Icon(Icons.radio_button_checked, color: kPrimary) 
                                         : const Icon(Icons.radio_button_off),
                                     onTap: () {
                                       setState(() {
-                                        _isNoidaLocation = true;
+                                        _isPithoragarhLocation = true;
                                       });
                                       context.pop();
                                       ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('Switched to Sector 62, Noida! All services enabled.')),
+                                        const SnackBar(content: Text('Switched to Siltham, Pithoragarh! All services enabled.')),
                                       );
                                     },
                                   ),
                                   ListTile(
                                     leading: const Icon(Icons.info, color: kAccent),
-                                    title: const Text('Connaught Place, Delhi (Delhi NCR)'),
+                                    title: const Text('Haldwani, Uttarakhand (Nainital)'),
                                     subtitle: const Text('Launching Soon (Lead Capture Active)'),
-                                    trailing: !_isNoidaLocation 
+                                    trailing: !_isPithoragarhLocation 
                                         ? const Icon(Icons.radio_button_checked, color: kPrimary) 
                                         : const Icon(Icons.radio_button_off),
                                     onTap: () {
                                       setState(() {
-                                        _isNoidaLocation = false;
+                                        _isPithoragarhLocation = false;
                                       });
                                       context.pop();
                                       ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('Switched to Connaught Place, Delhi! Location gating enabled.')),
+                                        const SnackBar(content: Text('Switched to Haldwani, Uttarakhand! Location gating enabled.')),
                                       );
                                     },
                                   ),
@@ -279,7 +279,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           const Icon(Icons.location_on, color: kPrimary, size: 18),
                           const SizedBox(width: 4),
                           Text(
-                            _isNoidaLocation ? 'Home: Sector 62, Noida' : 'Home: Connaught Place, Delhi',
+                            _isPithoragarhLocation ? 'Home: Siltham, Pithoragarh' : 'Home: Haldwani, Uttarakhand',
                             style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: kTextPrimary),
                           ),
                           const Icon(Icons.keyboard_arrow_down, size: 16, color: kMuted),
@@ -288,7 +288,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      _isNoidaLocation ? 'Namaste, Partner! 👋' : 'Launching Soon in Delhi! 🚀',
+                      _isPithoragarhLocation ? 'Namaste, Partner! 👋' : 'Launching Soon in Haldwani! 🚀',
                       style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: kTextPrimary),
                     ),
                   ],
@@ -391,7 +391,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 color: Colors.transparent,
                 child: InkWell(
                   onTap: () {
-                    if (!_isNoidaLocation) {
+                    if (!_isPithoragarhLocation) {
                       _showEarlyAccessDrawer();
                       return;
                     }

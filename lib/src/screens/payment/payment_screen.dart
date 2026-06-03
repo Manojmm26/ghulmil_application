@@ -15,8 +15,29 @@ class PaymentScreen extends ConsumerStatefulWidget {
 
 class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   bool _isLoading = false;
+  String _selectedMethod = 'upi'; // Default to UPI as requested
+  late TextEditingController _upiController;
+  final _formKey = GlobalKey<FormState>();
+
+  @override
+  void initState() {
+    super.initState();
+    _upiController = TextEditingController(text: 'customer@okaxis');
+  }
+
+  @override
+  void dispose() {
+    _upiController.dispose();
+    super.dispose();
+  }
 
   Future<void> _confirmAndPay() async {
+    if (_selectedMethod == 'upi') {
+      if (_formKey.currentState != null && !_formKey.currentState!.validate()) {
+        return;
+      }
+    }
+
     setState(() {
       _isLoading = true;
     });
@@ -48,6 +69,28 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         );
       }
     }
+  }
+
+  Widget _buildUpiAppLogo(String name, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.bolt, color: color, size: 16),
+          const SizedBox(width: 4),
+          Text(
+            name,
+            style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 11),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -219,9 +262,346 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             const SizedBox(height: spacingLg),
             Text('Payment Options', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: spacing),
-            // Mock payment options
-            RadioListTile(title: const Text('Saved Card **** 1234'), value: 1, groupValue: 1, onChanged: (v) {}),
-            RadioListTile(title: const Text('Cash on Completion'), value: 2, groupValue: 1, onChanged: (v) {}),
+            
+            // Option 1: Pay via UPI
+            GestureDetector(
+              onTap: () => setState(() => _selectedMethod = 'upi'),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.all(spacing),
+                decoration: BoxDecoration(
+                  color: _selectedMethod == 'upi' ? kPrimary.withOpacity(0.04) : Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: _selectedMethod == 'upi' ? kPrimary : Colors.grey[300]!,
+                    width: _selectedMethod == 'upi' ? 2.0 : 1.0,
+                  ),
+                  boxShadow: [
+                    if (_selectedMethod == 'upi')
+                      BoxShadow(
+                        color: kPrimary.withOpacity(0.08),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(spacingSm),
+                          decoration: BoxDecoration(
+                            color: _selectedMethod == 'upi' ? kPrimary.withOpacity(0.12) : Colors.grey[100],
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.qr_code_scanner,
+                            color: _selectedMethod == 'upi' ? kPrimary : Colors.grey[600],
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: spacing),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Pay via UPI',
+                                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                              ),
+                              Text(
+                                'GPay, PhonePe, Paytm, BHIM',
+                                style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Radio<String>(
+                          value: 'upi',
+                          groupValue: _selectedMethod,
+                          activeColor: kPrimary,
+                          onChanged: (val) {
+                            if (val != null) setState(() => _selectedMethod = val);
+                          },
+                        ),
+                      ],
+                    ),
+                    if (_selectedMethod == 'upi') ...[
+                      const Divider(height: 24),
+                      Form(
+                        key: _formKey,
+                        child: TextFormField(
+                          controller: _upiController,
+                          style: const TextStyle(fontSize: 14),
+                          decoration: InputDecoration(
+                            labelText: 'Enter UPI ID (VPA)',
+                            hintText: 'username@bank',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            prefixIcon: const Icon(Icons.alternate_email, color: kPrimary, size: 20),
+                            filled: true,
+                            fillColor: Colors.grey[50],
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          ),
+                          validator: (val) {
+                            if (val == null || val.isEmpty) {
+                              return 'Please enter your UPI ID';
+                            }
+                            if (!val.contains('@')) {
+                              return 'Invalid UPI ID (must contain @)';
+                            }
+                            return null;
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      // Quick tags
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: ['@okaxis', '@okicici', '@paytm', '@okdhfcbank'].map((suffix) {
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 6),
+                              child: InkWell(
+                                onTap: () {
+                                  final current = _upiController.text;
+                                  if (current.contains('@')) {
+                                    final parts = current.split('@');
+                                    if (parts[0].isNotEmpty) {
+                                      _upiController.text = parts[0] + suffix;
+                                    } else {
+                                      _upiController.text = 'customer' + suffix;
+                                    }
+                                  } else {
+                                    _upiController.text = (current.isEmpty ? 'customer' : current) + suffix;
+                                  }
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: kPrimary.withOpacity(0.08),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: kPrimary.withOpacity(0.2)),
+                                  ),
+                                  child: Text(
+                                    suffix,
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: kPrimary,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          _buildUpiAppLogo('GPay', Colors.blue[800]!),
+                          _buildUpiAppLogo('PhonePe', Colors.deepPurple),
+                          _buildUpiAppLogo('Paytm', Colors.blue[600]!),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: spacingSm),
+            
+            // Option 2: Cash on Completion
+            GestureDetector(
+              onTap: () => setState(() => _selectedMethod = 'cash'),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.all(spacing),
+                decoration: BoxDecoration(
+                  color: _selectedMethod == 'cash' ? kSuccess.withOpacity(0.04) : Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: _selectedMethod == 'cash' ? kSuccess : Colors.grey[300]!,
+                    width: _selectedMethod == 'cash' ? 2.0 : 1.0,
+                  ),
+                  boxShadow: [
+                    if (_selectedMethod == 'cash')
+                      BoxShadow(
+                        color: kSuccess.withOpacity(0.08),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(spacingSm),
+                          decoration: BoxDecoration(
+                            color: _selectedMethod == 'cash' ? kSuccess.withOpacity(0.12) : Colors.grey[100],
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.payments,
+                            color: _selectedMethod == 'cash' ? kSuccess : Colors.grey[600],
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: spacing),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Cash on Completion',
+                                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                              ),
+                              Text(
+                                'Pay the Mistri directly after service',
+                                style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Radio<String>(
+                          value: 'cash',
+                          groupValue: _selectedMethod,
+                          activeColor: kSuccess,
+                          onChanged: (val) {
+                            if (val != null) setState(() => _selectedMethod = val);
+                          },
+                        ),
+                      ],
+                    ),
+                    if (_selectedMethod == 'cash') ...[
+                      const Divider(height: 24),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.green[50],
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.green[200]!),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.handshake, color: kSuccess, size: 24),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'Zero advance payment required. Safely pay ₹${totalPrice.toStringAsFixed(0)} in cash or local personal UPI to the provider once your work is completely done.',
+                                style: TextStyle(color: Colors.green[900], fontSize: 11, height: 1.4, fontWeight: FontWeight.w500),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: spacingSm),
+
+            // Option 3: Saved Credit / Debit Card
+            GestureDetector(
+              onTap: () => setState(() => _selectedMethod = 'card'),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.all(spacing),
+                decoration: BoxDecoration(
+                  color: _selectedMethod == 'card' ? kPrimary.withOpacity(0.04) : Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: _selectedMethod == 'card' ? kPrimary : Colors.grey[300]!,
+                    width: _selectedMethod == 'card' ? 2.0 : 1.0,
+                  ),
+                  boxShadow: [
+                    if (_selectedMethod == 'card')
+                      BoxShadow(
+                        color: kPrimary.withOpacity(0.08),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(spacingSm),
+                          decoration: BoxDecoration(
+                            color: _selectedMethod == 'card' ? kPrimary.withOpacity(0.12) : Colors.grey[100],
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.credit_card,
+                            color: _selectedMethod == 'card' ? kPrimary : Colors.grey[600],
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: spacing),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Saved Card **** 1234',
+                                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                              ),
+                              Text(
+                                'Visa ending in 1234',
+                                style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Radio<String>(
+                          value: 'card',
+                          groupValue: _selectedMethod,
+                          activeColor: kPrimary,
+                          onChanged: (val) {
+                            if (val != null) setState(() => _selectedMethod = val);
+                          },
+                        ),
+                      ],
+                    ),
+                    if (_selectedMethod == 'card') ...[
+                      const Divider(height: 24),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[50],
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey[300]!),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.lock_outline, color: kMuted, size: 18),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Secured by standard gateway. Your card will be charged upon scheduling confirmation.',
+                                style: TextStyle(color: Colors.grey[800], fontSize: 11),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),

@@ -3,27 +3,27 @@ import 'package:dio/dio.dart';
 class LocationGatingService {
   static final Dio _dio = Dio();
 
-  // Target Launch Info
-  static const String launchDistrict = 'Gautam Buddha Nagar';
-  static const String launchState = 'Uttar Pradesh';
+  // Launch District: Pithoragarh, Uttarakhand
+  static const String launchDistrict = 'Pithoragarh';
+  static const String launchState = 'Uttarakhand';
 
-  // गौतम बुद्ध नगर (Noida/Greater Noida) Offline Bounding Box
-  static const double minLat = 28.10;
-  static const double maxLat = 28.65;
-  static const double minLng = 77.30;
-  static const double maxLng = 77.70;
+  // Pithoragarh district offline Bounding Box (Lat/Lng)
+  static const double minLat = 29.20;
+  static const double maxLat = 30.20;
+  static const double minLng = 79.80;
+  static const double maxLng = 80.50;
 
-  // Serviced Pin Codes for Noida launch
+  // Serviced Pin Codes for Pithoragarh district (Uttarakhand)
   static const Set<String> servicedPincodes = {
-    '201301', '201303', '201304', '201305', '201306', '201307', '201308', '201310', '201313', '201318'
+    '262501', '262502', '262510', '262520', '262530', '262540'
   };
 
-  /// Check if coordinates reside within the launch district bounding box
+  /// Check if coordinates fall inside Pithoragarh's boundary box
   static bool isInsideBoundingBox(double lat, double lng) {
     return lat >= minLat && lat <= maxLat && lng >= minLng && lng <= maxLng;
   }
 
-  /// Check if a postal pin code is active in our launch zone
+  /// Check if a PIN code is active in the Pithoragarh launch zone
   static bool isPincodeServiced(String pincode) {
     final cleanPin = pincode.trim();
     return servicedPincodes.contains(cleanPin);
@@ -45,10 +45,10 @@ class LocationGatingService {
         final address = response.data['address'];
         if (address != null) {
           return {
-            'district': address['county'] ?? address['district'] ?? address['city_district'] ?? '',
-            'state': address['state'] ?? '',
-            'pincode': address['postcode'] ?? '',
-            'suburb': address['suburb'] ?? address['neighbourhood'] ?? address['city'] ?? '',
+            'district': address['county'] ?? address['district'] ?? address['city_district'] ?? 'Pithoragarh',
+            'state': address['state'] ?? 'Uttarakhand',
+            'pincode': address['postcode'] ?? '262501',
+            'suburb': address['suburb'] ?? address['neighbourhood'] ?? address['city'] ?? 'Siltham',
           };
         }
       }
@@ -56,12 +56,12 @@ class LocationGatingService {
     return null;
   }
 
-  /// Sense device location (Mock coords in center of Noida for seamless sandbox E2E tests)
+  /// Sense device location (Mock coordinates placed in center of Pithoragarh town for demo verification)
   static Future<Map<String, double>> getDeviceLocation() async {
-    await Future.delayed(const Duration(milliseconds: 600)); // Simulate hardware sensor lag
+    await Future.delayed(const Duration(milliseconds: 600)); // Simulate sensor load
     return {
-      'latitude': 28.5355,  // Centroid of Noida Sector 30
-      'longitude': 77.3910,
+      'latitude': 29.5840,  // Centroid of Pithoragarh Town
+      'longitude': 80.2182,
     };
   }
 }

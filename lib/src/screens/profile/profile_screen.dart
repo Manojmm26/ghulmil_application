@@ -183,6 +183,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with SingleTicker
               final phone = userProfile['phone'] ?? 'Add phone number';
               final email = authState.user?.email ?? 'No email associated';
               final initials = fullName.isNotEmpty ? fullName.substring(0, 1).toUpperCase() : 'G';
+              final userType = userProfile['user_type'];
 
               return Container(
                 margin: const EdgeInsets.all(spacing),
@@ -223,13 +224,38 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with SingleTicker
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                fullName,
-                                style: const TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
+                              Row(
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      fullName,
+                                      style: const TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  if (userType == 'admin') ...[
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: const Text(
+                                        'ADMIN',
+                                        style: TextStyle(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.bold,
+                                          color: kPrimary,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
                               ),
                               const SizedBox(height: 4),
                               Row(
@@ -265,6 +291,36 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> with SingleTicker
                         ),
                       ],
                     ),
+                    if (userType == 'admin') ...[
+                      const Divider(color: Colors.white24, height: 24),
+                      InkWell(
+                        onTap: () => context.push('/admin/pricing'),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.admin_panel_settings, color: Colors.white, size: 18),
+                              SizedBox(width: 8),
+                              Text(
+                                'Pricing Control Engine',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              Spacer(),
+                              Icon(Icons.arrow_forward_ios, color: Colors.white, size: 12),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               );

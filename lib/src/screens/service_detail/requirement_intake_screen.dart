@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,6 +6,8 @@ import 'package:ghulmil_application/src/core/theme.dart';
 import 'package:ghulmil_application/src/providers/booking_provider.dart';
 import 'package:ghulmil_application/src/providers/service_provider.dart';
 import 'package:ghulmil_application/src/models/service.dart';
+import 'package:ghulmil_application/src/models/pricing_config.dart';
+import 'package:ghulmil_application/src/providers/pricing_provider.dart';
 import 'package:go_router/go_router.dart';
 
 class RequirementIntakeScreen extends ConsumerStatefulWidget {
@@ -26,6 +29,14 @@ class _RequirementIntakeScreenState extends ConsumerState<RequirementIntakeScree
   int _beldarCount = 2;
   int _workDays = 3;
   final _areaController = TextEditingController(text: '1000');
+  final _symptomController = TextEditingController();
+
+  // Voice note variables
+  bool _isRecording = false;
+  bool _hasRecorded = false;
+  bool _isPlaying = false;
+  int _recordingSeconds = 0;
+  Timer? _recordingTimer;
 
   // MEP: Electrical specific state
   bool _isRoughIn = true;
@@ -88,6 +99,7 @@ class _RequirementIntakeScreenState extends ConsumerState<RequirementIntakeScree
       if (ref.read(bookingDraftProvider) == null) {
         ref.read(bookingDraftProvider.notifier).startDraft(widget.serviceId);
       }
+      ref.invalidate(pricingConfigProvider);
     });
 
     _areaController.addListener(() {
@@ -157,75 +169,243 @@ class _RequirementIntakeScreenState extends ConsumerState<RequirementIntakeScree
   @override
   void dispose() {
     _areaController.dispose();
+    _symptomController.dispose();
     _pointController.dispose();
     _finishAreaController.dispose();
     _heightController.dispose();
     _widthController.dispose();
     _paintAreaController.dispose();
     _floorAreaController.dispose();
+    _recordingTimer?.cancel();
     super.dispose();
+  }
+
+  void _startMockRecording() {
+    setState(() {
+      _isRecording = true;
+      _hasRecorded = false;
+      _recordingSeconds = 0;
+    });
+    _recordingTimer?.cancel();
+    _recordingTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_recordingSeconds >= 30) {
+        _stopMockRecording();
+      } else {
+        setState(() {
+          _recordingSeconds++;
+        });
+      }
+    });
+  }
+
+  void _stopMockRecording() {
+    _recordingTimer?.cancel();
+    setState(() {
+      _isRecording = false;
+      _hasRecorded = true;
+    });
+  }
+
+  void _deleteVoiceNote() {
+    _recordingTimer?.cancel();
+    setState(() {
+      _isRecording = false;
+      _hasRecorded = false;
+      _isPlaying = false;
+      _recordingSeconds = 0;
+    });
+  }
+
+  void _toggleMockPlayback() {
+    setState(() {
+      _isPlaying = !_isPlaying;
+    });
+    if (_isPlaying) {
+      Future.delayed(Duration(seconds: _recordingSeconds), () {
+        if (mounted) {
+          setState(() {
+            _isPlaying = false;
+          });
+        }
+      });
+    }
+  }
+
+  PricingConfig _getPricingConfig(String serviceType) {
+    final list = ref.watch(pricingConfigProvider).value;
+    if (list != null) {
+      return list.firstWhere(
+        (c) => c.serviceType == serviceType,
+        orElse: () => _getDefaultFallback(serviceType),
+      );
+    }
+    return _getDefaultFallback(serviceType);
+  }
+
+  PricingConfig _getDefaultFallback(String serviceType) {
+    if (serviceType == 'electrical') {
+      return const PricingConfig(
+        serviceType: 'electrical',
+        baseRate: 800.0,
+        mistriDailyWage: 750.0,
+        beldarDailyWage: 450.0,
+        additionalMeta: {
+          'rough_in_material_rate': 120.0,
+          'finish_material_rate': 70.0,
+          'rough_in_labor_rate': 50.0,
+          'finish_labor_rate': 30.0,
+        },
+      );
+    } else if (serviceType == 'plumbing') {
+      return const PricingConfig(
+        serviceType: 'plumbing',
+        baseRate: 900.0,
+        mistriDailyWage: 800.0,
+        beldarDailyWage: 450.0,
+        additionalMeta: {
+          'concealed_material_rate': 1500.0,
+          'exposed_material_rate': 800.0,
+          'concealed_labor_rate': 600.0,
+          'exposed_labor_rate': 350.0,
+        },
+      );
+    } else if (serviceType == 'carpentry') {
+      return const PricingConfig(
+        serviceType: 'carpentry',
+        baseRate: 1500.0,
+        mistriDailyWage: 850.0,
+        beldarDailyWage: 450.0,
+        additionalMeta: {
+          'wardrobe_material_rate': 180.0,
+          'other_material_rate': 250.0,
+          'wardrobe_labor_rate': 60.0,
+          'other_labor_rate': 80.0,
+        },
+      );
+    } else if (serviceType == 'painting') {
+      return const PricingConfig(
+        serviceType: 'painting',
+        baseRate: 1000.0,
+        mistriDailyWage: 800.0,
+        beldarDailyWage: 450.0,
+        additionalMeta: {
+          'fresh_premium_rate': 12.0,
+          'fresh_standard_rate': 6.0,
+          'repaint_premium_rate': 8.0,
+          'repaint_standard_rate': 4.0,
+          'labor_only_rate': 3.0,
+        },
+      );
+    } else if (serviceType == 'flooring') {
+      return const PricingConfig(
+        serviceType: 'flooring',
+        baseRate: 1200.0,
+        mistriDailyWage: 900.0,
+        beldarDailyWage: 450.0,
+        additionalMeta: {
+          'marble_material_rate': 4.5,
+          'tiles_material_rate': 2.0,
+          'labor_only_rate': 1.2,
+          'mirror_polish_material_premium': 2.5,
+          'mirror_polish_labor_premium': 1.5,
+        },
+      );
+    } else {
+      return const PricingConfig(
+        serviceType: 'civil',
+        baseRate: 1200.0,
+        mistriDailyWage: 800.0,
+        beldarDailyWage: 450.0,
+        additionalMeta: {
+          'material_rate_premium': 2.5,
+          'material_rate_semi_premium': 1.5,
+          'material_rate_standard': 1.0,
+          'labor_factor': 0.45,
+        },
+      );
+    }
   }
 
   // Live Pricing Calculation Engine
   double _calculateTotalPrice(String serviceType) {
+    final config = _getPricingConfig(serviceType);
+    final double baseRate = config.baseRate;
+    final double mistriWage = config.mistriDailyWage;
+    final double beldarWage = config.beldarDailyWage;
+    final meta = config.additionalMeta;
+
     if (serviceType == 'electrical') {
-      const double baseRate = 800.0;
+      final double roughInMaterialRate = (meta['rough_in_material_rate'] ?? 120.0).toDouble();
+      final double finishMaterialRate = (meta['finish_material_rate'] ?? 70.0).toDouble();
+      final double roughInLaborRate = (meta['rough_in_labor_rate'] ?? 50.0).toDouble();
+      final double finishLaborRate = (meta['finish_labor_rate'] ?? 30.0).toDouble();
+
       double pointCost = _includeMaterial
-          ? (_isRoughIn ? (_pointCount * 120.0) : (_pointCount * 70.0))
-          : (_isRoughIn ? (_pointCount * 50.0) : (_pointCount * 30.0));
-      const double mepDailyWage = 750.0;
-      const double helperDailyWage = 450.0;
-      double laborCost = ((_mistriCount * mepDailyWage) + (_beldarCount * helperDailyWage)) * _workDays;
+          ? (_isRoughIn ? (_pointCount * roughInMaterialRate) : (_pointCount * finishMaterialRate))
+          : (_isRoughIn ? (_pointCount * roughInLaborRate) : (_pointCount * finishLaborRate));
+      double laborCost = ((_mistriCount * mistriWage) + (_beldarCount * beldarWage)) * _workDays;
       return baseRate + pointCost + laborCost;
     } else if (serviceType == 'plumbing') {
-      const double baseRate = 900.0;
+      final double concealedMaterialRate = (meta['concealed_material_rate'] ?? 1500.0).toDouble();
+      final double exposedMaterialRate = (meta['exposed_material_rate'] ?? 800.0).toDouble();
+      final double concealedLaborRate = (meta['concealed_labor_rate'] ?? 600.0).toDouble();
+      final double exposedLaborRate = (meta['exposed_labor_rate'] ?? 350.0).toDouble();
+
       double plumbingCost = _bathroomCount * (_includeMaterial
-          ? (_isConcealed ? 1500.0 : 800.0)
-          : (_isConcealed ? 600.0 : 350.0));
-      const double plumberDailyWage = 800.0;
-      const double helperDailyWage = 450.0;
-      double laborCost = ((_mistriCount * plumberDailyWage) + (_beldarCount * helperDailyWage)) * _workDays;
+          ? (_isConcealed ? concealedMaterialRate : exposedMaterialRate)
+          : (_isConcealed ? concealedLaborRate : exposedLaborRate));
+      double laborCost = ((_mistriCount * mistriWage) + (_beldarCount * beldarWage)) * _workDays;
       return baseRate + plumbingCost + laborCost;
     } else if (serviceType == 'carpentry') {
-      const double baseRate = 1500.0;
+      final double wardrobeMaterialRate = (meta['wardrobe_material_rate'] ?? 180.0).toDouble();
+      final double otherMaterialRate = (meta['other_material_rate'] ?? 250.0).toDouble();
+      final double wardrobeLaborRate = (meta['wardrobe_labor_rate'] ?? 60.0).toDouble();
+      final double otherLaborRate = (meta['other_labor_rate'] ?? 80.0).toDouble();
+
       double cabinetArea = _cabinetHeight * _cabinetWidth;
       double cabinetCost = cabinetArea * (_includeMaterial
-          ? (_isWardrobe ? 180.0 : 250.0)
-          : (_isWardrobe ? 60.0 : 80.0));
-      const double carpenterDailyWage = 850.0;
-      const double helperDailyWage = 450.0;
-      double laborCost = ((_mistriCount * carpenterDailyWage) + (_beldarCount * helperDailyWage)) * _workDays;
+          ? (_isWardrobe ? wardrobeMaterialRate : otherMaterialRate)
+          : (_isWardrobe ? wardrobeLaborRate : otherLaborRate));
+      double laborCost = ((_mistriCount * mistriWage) + (_beldarCount * beldarWage)) * _workDays;
       return baseRate + cabinetCost + laborCost;
     } else if (serviceType == 'painting') {
-      const double baseRate = 1000.0;
+      final double freshPremiumRate = (meta['fresh_premium_rate'] ?? 12.0).toDouble();
+      final double freshStandardRate = (meta['fresh_standard_rate'] ?? 6.0).toDouble();
+      final double repaintPremiumRate = (meta['repaint_premium_rate'] ?? 8.0).toDouble();
+      final double repaintStandardRate = (meta['repaint_standard_rate'] ?? 4.0).toDouble();
+      final double laborOnlyRate = (meta['labor_only_rate'] ?? 3.0).toDouble();
+
       double materialRate = _includeMaterial
           ? (_isFreshPaint
-              ? (_isPremiumPaint ? 12.0 : 6.0)
-              : (_isPremiumPaint ? 8.0 : 4.0))
-          : 3.0;
+              ? (_isPremiumPaint ? freshPremiumRate : freshStandardRate)
+              : (_isPremiumPaint ? repaintPremiumRate : repaintStandardRate))
+          : laborOnlyRate;
       double paintingCost = _paintArea * materialRate;
-      const double painterDailyWage = 800.0;
-      const double helperDailyWage = 450.0;
-      double laborCost = ((_mistriCount * painterDailyWage) + (_beldarCount * helperDailyWage)) * _workDays;
+      double laborCost = ((_mistriCount * mistriWage) + (_beldarCount * beldarWage)) * _workDays;
       return baseRate + paintingCost + laborCost;
     } else if (serviceType == 'flooring') {
-      const double baseRate = 1200.0;
+      final double marbleMaterialRate = (meta['marble_material_rate'] ?? 4.5).toDouble();
+      final double tilesMaterialRate = (meta['tiles_material_rate'] ?? 2.0).toDouble();
+      final double laborOnlyRate = (meta['labor_only_rate'] ?? 1.2).toDouble();
+      final double mirrorPolishMaterialPremium = (meta['mirror_polish_material_premium'] ?? 2.5).toDouble();
+      final double mirrorPolishLaborPremium = (meta['mirror_polish_labor_premium'] ?? 1.5).toDouble();
+
       double materialRate = _includeMaterial
-          ? (_isMarble ? 4.5 : 2.0)
-          : 1.2;
-      double polishingPremium = _isMirrorPolish ? (_floorArea * (_includeMaterial ? 2.5 : 1.5)) : 0.0;
+          ? (_isMarble ? marbleMaterialRate : tilesMaterialRate)
+          : laborOnlyRate;
+      double polishingPremium = _isMirrorPolish ? (_floorArea * (_includeMaterial ? mirrorPolishMaterialPremium : mirrorPolishLaborPremium)) : 0.0;
       double flooringCost = (_floorArea * materialRate) + polishingPremium;
-      const double flooringDailyWage = 900.0;
-      const double helperDailyWage = 450.0;
-      double laborCost = ((_mistriCount * flooringDailyWage) + (_beldarCount * helperDailyWage)) * _workDays;
+      double laborCost = ((_mistriCount * mistriWage) + (_beldarCount * beldarWage)) * _workDays;
       return baseRate + flooringCost + laborCost;
     } else {
-      const double baseRate = 1200.0; // Base platform & tooling rate
-      double materialFactor = _selectedMaterial == 'Premium' ? 2.5 : (_selectedMaterial == 'Semi-Premium' ? 1.5 : 1.0);
-      double materialCost = _includeMaterial ? (_plotArea * 0.45 * materialFactor) : 0.0;
-      const double mistriDailyWage = 800.0;
-      const double beldarDailyWage = 450.0;
-      double laborCost = ((_mistriCount * mistriDailyWage) + (_beldarCount * beldarDailyWage)) * _workDays;
+      final double materialRatePremium = (meta['material_rate_premium'] ?? 2.5).toDouble();
+      final double materialRateSemiPremium = (meta['material_rate_semi_premium'] ?? 1.5).toDouble();
+      final double materialRateStandard = (meta['material_rate_standard'] ?? 1.0).toDouble();
+      final double laborFactor = (meta['labor_factor'] ?? 0.45).toDouble();
+
+      double materialFactor = _selectedMaterial == 'Premium' ? materialRatePremium : (_selectedMaterial == 'Semi-Premium' ? materialRateSemiPremium : materialRateStandard);
+      double materialCost = _includeMaterial ? (_plotArea * laborFactor * materialFactor) : 0.0;
+      double laborCost = ((_mistriCount * mistriWage) + (_beldarCount * beldarWage)) * _workDays;
       return baseRate + materialCost + laborCost;
     }
   }
@@ -259,6 +439,9 @@ class _RequirementIntakeScreenState extends ConsumerState<RequirementIntakeScree
       'work_days': _workDays,
       'raj_mistri_count': _mistriCount,
       'beldar_count': _beldarCount,
+      'symptom_description': _symptomController.text.trim(),
+      'voice_note_attached': _hasRecorded,
+      'voice_note_duration_sec': _hasRecorded ? _recordingSeconds : 0,
       'computed_price': _calculateTotalPrice(serviceType),
     };
 
@@ -275,6 +458,7 @@ class _RequirementIntakeScreenState extends ConsumerState<RequirementIntakeScree
   @override
   Widget build(BuildContext context) {
     final serviceAsync = ref.watch(serviceProvider(widget.serviceId));
+    ref.watch(pricingConfigProvider);
 
     return PopScope(
       canPop: _currentStep == 0,
@@ -325,19 +509,26 @@ class _RequirementIntakeScreenState extends ConsumerState<RequirementIntakeScree
                         else if (serviceType == 'carpentry') _buildCarpentryTypeStep()
                         else if (serviceType == 'painting') _buildPaintingTypeStep()
                         else if (serviceType == 'flooring') _buildFlooringMaterialStep()
-                        else _buildMaterialStep()
-                      ] else if (_currentStep == 1) ...[
+                        else _buildMaterialStep(serviceType)
+                      ] else ...[
                         if (serviceType == 'electrical') _buildMepPointsStep()
                         else if (serviceType == 'plumbing') _buildPlumbingBathroomsStep()
                         else if (serviceType == 'carpentry') _buildCarpentryDimensionsStep()
                         else if (serviceType == 'painting') _buildPaintingAreaStep()
                         else if (serviceType == 'flooring') _buildFlooringAreaStep()
-                        else _buildDimensionsStep()
-                      ] else ...[
-                        _buildLaborStep(serviceType)
+                        else _buildDimensionsStep(),
+                        
+                        const SizedBox(height: spacingLg),
+                        _buildCustomSymptomDescriptionField(),
                       ],
 
                       const SizedBox(height: spacingLg),
+
+                      // Workforce Configuration Panel (Enabled only for Step 0)
+                      if (_currentStep == 0) ...[
+                        _buildWorkforceConfigPanel(serviceType),
+                        const SizedBox(height: spacingLg),
+                      ],
 
                       // Smart Live Estimate Card
                       _buildLiveEstimateCard(serviceType),
@@ -355,6 +546,248 @@ class _RequirementIntakeScreenState extends ConsumerState<RequirementIntakeScree
     ),
   );
 }
+
+  Widget _buildCustomSymptomDescriptionField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Aapki Requirement (Job Description)',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: spacingSm),
+        Text(
+          'Please describe the exact issue or specific work needed. This helps our local team prepare tools.',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: kMuted),
+        ),
+        const SizedBox(height: spacing),
+        TextFormField(
+          controller: _symptomController,
+          maxLines: 3,
+          decoration: InputDecoration(
+            hintText: 'e.g. Wall patch work, 2 light points to be moved, water pipe leak in bathroom ceiling...',
+            hintStyle: TextStyle(color: kMuted.withOpacity(0.6), fontSize: 13),
+            border: const OutlineInputBorder(),
+            focusedBorder: const OutlineInputBorder(
+              borderSide: BorderSide(color: kPrimary, width: 1.5),
+            ),
+          ),
+        ),
+        const SizedBox(height: spacingLg),
+        const Divider(),
+        const SizedBox(height: spacing),
+        _buildVoiceNotePanel(),
+      ],
+    );
+  }
+
+  Widget _buildVoiceNotePanel() {
+    final theme = Theme.of(context);
+
+    if (!_isRecording && !_hasRecorded) {
+      // 1. Initial State: Invite to Record
+      return Container(
+        decoration: BoxDecoration(
+          color: kPrimary.withOpacity(0.04),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: kPrimary.withOpacity(0.15), width: 1.2),
+        ),
+        padding: const EdgeInsets.all(spacing),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 20,
+              backgroundColor: kPrimary.withOpacity(0.1),
+              child: const Icon(Icons.mic, color: kPrimary, size: 22),
+            ),
+            const SizedBox(width: spacing),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Record a Voice Note 🎙',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: kTextPrimary),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Record a quick 30-sec audio explaining the issue in Hindi/Kumaoni.',
+                    style: TextStyle(color: kMuted.withOpacity(0.85), fontSize: 10, height: 1.3),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: spacingSm),
+            ElevatedButton.icon(
+              onPressed: _startMockRecording,
+              icon: const Icon(Icons.fiber_manual_record, color: Colors.red, size: 12),
+              label: const Text('Record', style: TextStyle(fontSize: 11)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: kPrimary,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+          ],
+        ),
+      );
+    } else if (_isRecording) {
+      // 2. Recording State: Animated visual bars & Timer
+      String timeStr = '00:${_recordingSeconds.toString().padLeft(2, '0')} / 00:30';
+
+      return Container(
+        decoration: BoxDecoration(
+          color: kDanger.withOpacity(0.04),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: kDanger.withOpacity(0.15), width: 1.2),
+        ),
+        padding: const EdgeInsets.all(spacing),
+        child: Row(
+          children: [
+            // Pulsing Red circle avatar
+            CircleAvatar(
+              radius: 20,
+              backgroundColor: kDanger.withOpacity(0.15),
+              child: const Icon(Icons.mic, color: kDanger, size: 22),
+            ),
+            const SizedBox(width: spacing),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Text(
+                        'Recording audio...',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: kDanger),
+                      ),
+                      const SizedBox(width: spacingSm),
+                      Text(
+                        timeStr,
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: kMuted),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  // Voice waveform visualizer
+                  _buildAnimatedWaveform(),
+                ],
+              ),
+            ),
+            const SizedBox(width: spacingSm),
+            ElevatedButton(
+              onPressed: _stopMockRecording,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: kDanger,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              child: const Text('Stop', style: TextStyle(fontSize: 11, color: Colors.white)),
+            ),
+          ],
+        ),
+      );
+    } else {
+      // 3. Playback / Finished State: Voice note card with play & delete
+      String durStr = '00:${_recordingSeconds.toString().padLeft(2, '0')}';
+
+      return Container(
+        decoration: BoxDecoration(
+          color: kSuccess.withOpacity(0.04),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: kSuccess.withOpacity(0.15), width: 1.2),
+        ),
+        padding: const EdgeInsets.all(spacing),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 20,
+              backgroundColor: _isPlaying ? kSuccess.withOpacity(0.15) : kSuccess.withOpacity(0.1),
+              child: IconButton(
+                padding: EdgeInsets.zero,
+                icon: Icon(
+                  _isPlaying ? Icons.pause : Icons.play_arrow,
+                  color: kSuccess,
+                  size: 24,
+                ),
+                onPressed: _toggleMockPlayback,
+              ),
+            ),
+            const SizedBox(width: spacing),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Text(
+                        'Voice Note Attached 🎵',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: kSuccess),
+                      ),
+                      const SizedBox(width: spacingSm),
+                      Text(
+                        durStr,
+                        style: const TextStyle(fontSize: 11, color: kMuted),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  // Static wave indicating voice note exists
+                  _buildStaticWaveform(),
+                ],
+              ),
+            ),
+            const SizedBox(width: spacingSm),
+            IconButton(
+              icon: const Icon(Icons.delete_outline, color: kDanger, size: 24),
+              onPressed: _deleteVoiceNote,
+              tooltip: 'Delete Voice Note',
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  Widget _buildAnimatedWaveform() {
+    // Generate a set of bars of different heights to simulate standard dynamic voice recording waves!
+    final heights = [10.0, 22.0, 14.0, 28.0, 8.0, 18.0, 24.0, 12.0, 30.0, 16.0, 20.0, 6.0];
+    return Row(
+      children: heights.map((h) {
+        // Shift heights slightly if odd/even seconds to give a live feeling!
+        double dynamicH = h;
+        if (_recordingSeconds % 2 == 0) {
+          dynamicH = h * 0.6 + 4.0;
+        }
+        return Container(
+          width: 3.5,
+          height: dynamicH,
+          margin: const EdgeInsets.only(right: 3),
+          decoration: BoxDecoration(
+            color: kDanger.withOpacity(0.6),
+            borderRadius: BorderRadius.circular(2),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildStaticWaveform() {
+    final heights = [10.0, 14.0, 20.0, 14.0, 8.0, 18.0, 12.0, 16.0, 24.0, 10.0, 8.0, 6.0];
+    return Row(
+      children: heights.map((h) {
+        return Container(
+          width: 3.5,
+          height: h,
+          margin: const EdgeInsets.only(right: 3),
+          decoration: BoxDecoration(
+            color: _isPlaying ? kSuccess : kSuccess.withOpacity(0.4),
+            borderRadius: BorderRadius.circular(2),
+          ),
+        );
+      }).toList(),
+    );
+  }
 
   Widget _buildMaterialSupplyHeader() {
     return Column(
@@ -389,15 +822,20 @@ class _RequirementIntakeScreenState extends ConsumerState<RequirementIntakeScree
                     padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.local_shipping_outlined, color: _includeMaterial ? kPrimary : kMuted, size: 20),
                         const SizedBox(width: 8),
-                        Text(
-                          'Ghulmil Supplies',
-                          style: TextStyle(
-                            fontWeight: _includeMaterial ? FontWeight.bold : FontWeight.normal,
-                            fontSize: 12,
-                            color: _includeMaterial ? kPrimary : kMuted,
+                        Flexible(
+                          child: Text(
+                            'Ghulmil Supplies',
+                            style: TextStyle(
+                              fontWeight: _includeMaterial ? FontWeight.bold : FontWeight.normal,
+                              fontSize: 12,
+                              color: _includeMaterial ? kPrimary : kMuted,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
                           ),
                         ),
                       ],
@@ -422,15 +860,20 @@ class _RequirementIntakeScreenState extends ConsumerState<RequirementIntakeScree
                     padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.inventory_2_outlined, color: !_includeMaterial ? kPrimary : kMuted, size: 20),
                         const SizedBox(width: 8),
-                        Text(
-                          'Only Labor',
-                          style: TextStyle(
-                            fontWeight: !_includeMaterial ? FontWeight.bold : FontWeight.normal,
-                            fontSize: 12,
-                            color: !_includeMaterial ? kPrimary : kMuted,
+                        Flexible(
+                          child: Text(
+                            'Only Labor',
+                            style: TextStyle(
+                              fontWeight: !_includeMaterial ? FontWeight.bold : FontWeight.normal,
+                              fontSize: 12,
+                              color: !_includeMaterial ? kPrimary : kMuted,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
                           ),
                         ),
                       ],
@@ -474,17 +917,8 @@ class _RequirementIntakeScreenState extends ConsumerState<RequirementIntakeScree
   }
 
   Widget _buildStepProgress(String serviceType) {
-    final step1Title = serviceType == 'mep'
-        ? 'Kaam ka Stage'
-        : (serviceType == 'finishing' ? 'Kaam ki Quality' : 'Material');
-
-    final step2Title = serviceType == 'mep'
-        ? 'Points (Outlets)'
-        : (serviceType == 'finishing' ? 'Kaam ka Area' : 'Daimensan (Size)');
-
-    final step3Title = serviceType == 'mep'
-        ? 'Karigar'
-        : (serviceType == 'finishing' ? 'Karigar' : 'Karigar (Labour)');
+    final step1Title = 'Workforce & Materials';
+    final step2Title = 'Scope & Details';
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: spacingSm, horizontal: spacing),
@@ -494,8 +928,6 @@ class _RequirementIntakeScreenState extends ConsumerState<RequirementIntakeScree
           _buildStepNode(0, step1Title),
           _buildStepConnector(0),
           _buildStepNode(1, step2Title),
-          _buildStepConnector(1),
-          _buildStepNode(2, step3Title),
         ],
       ),
     );
@@ -546,8 +978,9 @@ class _RequirementIntakeScreenState extends ConsumerState<RequirementIntakeScree
     );
   }
 
-  Widget _buildMaterialStep() {
+  Widget _buildMaterialStep(String serviceType) {
     final theme = Theme.of(context);
+    final config = _getPricingConfig(serviceType);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -694,9 +1127,9 @@ class _RequirementIntakeScreenState extends ConsumerState<RequirementIntakeScree
                         ),
                       ),
                       const SizedBox(height: 6),
-                      const Text(
-                        'You will only pay for daily workforce wages (₹800/day Raj Mistri, ₹450/day Beldar) and platform booking fees. Please ensure bricks (eent), cement, sand (masala), and scaffolding are fully ready on-site before the team arrives.',
-                        style: TextStyle(fontSize: 11, height: 1.4, color: Colors.black87),
+                      Text(
+                        'You will only pay for daily workforce wages (₹${config.mistriDailyWage.toStringAsFixed(0)}/day Raj Mistri, ₹${config.beldarDailyWage.toStringAsFixed(0)}/day Beldar) and platform booking fees. Please ensure bricks (eent), cement, sand (masala), and scaffolding are fully ready on-site before the team arrives.',
+                        style: const TextStyle(fontSize: 11, height: 1.4, color: Colors.black87),
                       ),
                     ],
                   ),
@@ -915,8 +1348,237 @@ class _RequirementIntakeScreenState extends ConsumerState<RequirementIntakeScree
     );
   }
 
+  Widget _buildWorkforceConfigPanel(String serviceType) {
+    final config = _getPricingConfig(serviceType);
+    final skilledWage = config.mistriDailyWage;
+    final helperWage = config.beldarDailyWage;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: kPrimary.withOpacity(0.02),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: kPrimary.withOpacity(0.2), width: 1.5),
+      ),
+      padding: const EdgeInsets.all(spacing),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.engineering_outlined, color: kPrimary),
+              const SizedBox(width: spacingSm),
+              Text(
+                'Configure Workforce & Days 👷',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          const SizedBox(height: spacingXs),
+          const Text(
+            'Standard daily rates for Pithoragarh District. Select workforce size based on your job requirements.',
+            style: TextStyle(color: kMuted, fontSize: 11),
+          ),
+          const SizedBox(height: spacing),
+
+          // Skilled Karigar Picker
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    serviceType == 'electrical' || serviceType == 'plumbing'
+                        ? 'Skilled Tech (Karigar)'
+                        : 'Skilled Mistri (Karigar)',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  Text(
+                    '₹${skilledWage.toStringAsFixed(0)} / day fixed rate',
+                    style: const TextStyle(color: kPrimary, fontSize: 11, fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+              Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.remove_circle_outline, color: kPrimary, size: 20),
+                    onPressed: _mistriCount > 0
+                        ? () => setState(() => _mistriCount--)
+                        : null,
+                  ),
+                  Text('$_mistriCount', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                  IconButton(
+                    icon: const Icon(Icons.add_circle_outline, color: kPrimary, size: 20),
+                    onPressed: _mistriCount < 5
+                        ? () => setState(() => _mistriCount++)
+                        : null,
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: spacingSm),
+
+          // Beldar / Helper Picker
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Helper (Unskilled Beldar)',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  Text(
+                    '₹${helperWage.toStringAsFixed(0)} / day fixed rate',
+                    style: const TextStyle(color: kPrimary, fontSize: 11, fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+              Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.remove_circle_outline, color: kPrimary, size: 20),
+                    onPressed: _beldarCount > 0
+                      ? () => setState(() => _beldarCount--)
+                      : null,
+                  ),
+                  Text('$_beldarCount', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                  IconButton(
+                    icon: const Icon(Icons.add_circle_outline, color: kPrimary, size: 20),
+                    onPressed: _beldarCount < 5
+                      ? () => setState(() => _beldarCount++)
+                      : null,
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: spacingSm),
+
+          // Duration / Days Picker
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  Text(
+                    'Work Duration',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  Text(
+                    'Estimated active days on-site',
+                    style: TextStyle(color: kMuted, fontSize: 11),
+                  ),
+                ],
+              ),
+              Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.remove_circle_outline, color: kPrimary, size: 20),
+                    onPressed: _workDays > 1
+                        ? () => setState(() => _workDays--)
+                        : null,
+                  ),
+                  Text('$_workDays Days', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                  IconButton(
+                    icon: const Icon(Icons.add_circle_outline, color: kPrimary, size: 20),
+                    onPressed: _workDays < 30
+                        ? () => setState(() => _workDays++)
+                        : null,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildLiveEstimateCard(String serviceType) {
     final totalPrice = _calculateTotalPrice(serviceType);
+    final isMep = serviceType == 'mep' || serviceType == 'electrical' || serviceType == 'plumbing';
+    final isFinishing = serviceType == 'finishing' || serviceType == 'carpentry' || serviceType == 'painting' || serviceType == 'flooring';
+
+    final config = _getPricingConfig(serviceType);
+    final double baseRate = config.baseRate;
+    final double mistriWage = config.mistriDailyWage;
+    final double beldarWage = config.beldarDailyWage;
+    final meta = config.additionalMeta;
+
+    double materialCost = 0.0;
+    double laborCost = ((_mistriCount * mistriWage) + (_beldarCount * beldarWage)) * _workDays;
+
+    if (serviceType == 'electrical') {
+      final double roughInMaterialRate = (meta['rough_in_material_rate'] ?? 120.0).toDouble();
+      final double finishMaterialRate = (meta['finish_material_rate'] ?? 70.0).toDouble();
+      final double roughInLaborRate = (meta['rough_in_labor_rate'] ?? 50.0).toDouble();
+      final double finishLaborRate = (meta['finish_labor_rate'] ?? 30.0).toDouble();
+
+      materialCost = _includeMaterial
+          ? (_isRoughIn ? (_pointCount * roughInMaterialRate) : (_pointCount * finishMaterialRate))
+          : (_isRoughIn ? (_pointCount * roughInLaborRate) : (_pointCount * finishLaborRate));
+    } else if (serviceType == 'plumbing') {
+      final double concealedMaterialRate = (meta['concealed_material_rate'] ?? 1500.0).toDouble();
+      final double exposedMaterialRate = (meta['exposed_material_rate'] ?? 800.0).toDouble();
+      final double concealedLaborRate = (meta['concealed_labor_rate'] ?? 600.0).toDouble();
+      final double exposedLaborRate = (meta['exposed_labor_rate'] ?? 350.0).toDouble();
+
+      materialCost = _bathroomCount * (_includeMaterial
+          ? (_isConcealed ? concealedMaterialRate : exposedMaterialRate)
+          : (_isConcealed ? concealedLaborRate : exposedLaborRate));
+    } else if (serviceType == 'carpentry') {
+      final double wardrobeMaterialRate = (meta['wardrobe_material_rate'] ?? 180.0).toDouble();
+      final double otherMaterialRate = (meta['other_material_rate'] ?? 250.0).toDouble();
+      final double wardrobeLaborRate = (meta['wardrobe_labor_rate'] ?? 60.0).toDouble();
+      final double otherLaborRate = (meta['other_labor_rate'] ?? 80.0).toDouble();
+
+      double cabinetArea = _cabinetHeight * _cabinetWidth;
+      materialCost = cabinetArea * (_includeMaterial
+          ? (_isWardrobe ? wardrobeMaterialRate : otherMaterialRate)
+          : (_isWardrobe ? wardrobeLaborRate : otherLaborRate));
+    } else if (serviceType == 'painting') {
+      final double freshPremiumRate = (meta['fresh_premium_rate'] ?? 12.0).toDouble();
+      final double freshStandardRate = (meta['fresh_standard_rate'] ?? 6.0).toDouble();
+      final double repaintPremiumRate = (meta['repaint_premium_rate'] ?? 8.0).toDouble();
+      final double repaintStandardRate = (meta['repaint_standard_rate'] ?? 4.0).toDouble();
+      final double laborOnlyRate = (meta['labor_only_rate'] ?? 3.0).toDouble();
+
+      double materialRate = _includeMaterial
+          ? (_isFreshPaint
+              ? (_isPremiumPaint ? freshPremiumRate : freshStandardRate)
+              : (_isPremiumPaint ? repaintPremiumRate : repaintStandardRate))
+          : laborOnlyRate;
+      materialCost = _paintArea * materialRate;
+    } else if (serviceType == 'flooring') {
+      final double marbleMaterialRate = (meta['marble_material_rate'] ?? 4.5).toDouble();
+      final double tilesMaterialRate = (meta['tiles_material_rate'] ?? 2.0).toDouble();
+      final double laborOnlyRate = (meta['labor_only_rate'] ?? 1.2).toDouble();
+      final double mirrorPolishMaterialPremium = (meta['mirror_polish_material_premium'] ?? 2.5).toDouble();
+      final double mirrorPolishLaborPremium = (meta['mirror_polish_labor_premium'] ?? 1.5).toDouble();
+
+      double materialRate = _includeMaterial
+          ? (_isMarble ? marbleMaterialRate : tilesMaterialRate)
+          : laborOnlyRate;
+      double polishingPremium = _isMirrorPolish ? (_floorArea * (_includeMaterial ? mirrorPolishMaterialPremium : mirrorPolishLaborPremium)) : 0.0;
+      materialCost = (_floorArea * materialRate) + polishingPremium;
+    } else {
+      final double materialRatePremium = (meta['material_rate_premium'] ?? 2.5).toDouble();
+      final double materialRateSemiPremium = (meta['material_rate_semi_premium'] ?? 1.5).toDouble();
+      final double materialRateStandard = (meta['material_rate_standard'] ?? 1.0).toDouble();
+      final double laborFactor = (meta['labor_factor'] ?? 0.45).toDouble();
+
+      double materialFactor = _selectedMaterial == 'Premium' ? materialRatePremium : (_selectedMaterial == 'Semi-Premium' ? materialRateSemiPremium : materialRateStandard);
+      materialCost = _includeMaterial ? (_plotArea * laborFactor * materialFactor) : 0.0;
+    }
+
+    final basePct = totalPrice > 0 ? (baseRate / totalPrice) : 0.0;
+    final materialPct = totalPrice > 0 ? (materialCost / totalPrice) : 0.0;
+    final laborPct = totalPrice > 0 ? (laborCost / totalPrice) : 0.0;
 
     return Card(
       color: Colors.white,
@@ -940,29 +1602,82 @@ class _RequirementIntakeScreenState extends ConsumerState<RequirementIntakeScree
               ],
             ),
             const Divider(height: spacingLg),
-            if (serviceType == 'mep') ...[
-              _buildPriceRow(
-                '$_pointCount Points · ${_isRoughIn ? "Jhirri/Conduit" : "Fitting"} Material',
-                '₹${(_isRoughIn ? (_pointCount * 120.0) : (_pointCount * 70.0)).toStringAsFixed(0)}',
+
+            // Dynamic Stacked Visual Cost Breakdown Chart
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: Container(
+                height: 12,
+                color: Colors.grey.shade100,
+                child: Row(
+                  children: [
+                    if (laborCost > 0)
+                      Expanded(
+                        flex: (laborPct * 100).round().clamp(1, 100),
+                        child: Container(color: kPrimary),
+                      ),
+                    if (materialCost > 0)
+                      Expanded(
+                        flex: (materialPct * 100).round().clamp(1, 100),
+                        child: Container(color: kAccent),
+                      ),
+                    if (baseRate > 0)
+                      Expanded(
+                        flex: (basePct * 100).round().clamp(1, 100),
+                        child: Container(color: kSuccess),
+                      ),
+                  ],
+                ),
               ),
-              _buildPriceRow('Workforce Wage ($_mistriCount Karigar + $_beldarCount Helper)', '₹${(((_mistriCount * 750) + (_beldarCount * 450)) * _workDays).toStringAsFixed(0)}'),
-            ] else if (serviceType == 'finishing') ...[
-              _buildPriceRow(
-                '$_finishType Material & Finishing',
-                '₹${(_finishArea * (_finishType == 'Premium' ? 6.5 : (_finishType == 'Semi-Premium' ? 3.5 : 2.0))).toStringAsFixed(0)}',
-              ),
-              _buildPriceRow('Workforce Wage ($_mistriCount Karigar + $_beldarCount Helper)', '₹${(((_mistriCount * 850) + (_beldarCount * 450)) * _workDays).toStringAsFixed(0)}'),
-            ] else ...[
-              _buildPriceRow(
-                _includeMaterial
-                    ? '$_selectedMaterial Material Cost'
-                    : 'Material Cost (Procured by Customer)',
-                _includeMaterial
-                    ? '₹${(_plotArea * 0.45 * (_selectedMaterial == 'Premium' ? 2.5 : (_selectedMaterial == 'Semi-Premium' ? 1.5 : 1.0))).toStringAsFixed(0)}'
-                    : '₹0',
-              ),
-              _buildPriceRow('Workforce Wage ($_mistriCount Mistri + $_beldarCount Beldar)', '₹${(((_mistriCount * 800) + (_beldarCount * 450)) * _workDays).toStringAsFixed(0)}'),
-            ],
+            ),
+            const SizedBox(height: spacingSm),
+            Wrap(
+              spacing: spacing,
+              runSpacing: 4,
+              children: [
+                _buildLegendItem('Labour Wages (${(laborPct * 100).toStringAsFixed(0)}%)', kPrimary),
+                if (materialCost > 0)
+                  _buildLegendItem('Materials (${(materialPct * 100).toStringAsFixed(0)}%)', kAccent),
+                _buildLegendItem('Booking & Tooling (${(basePct * 100).toStringAsFixed(0)}%)', kSuccess),
+              ],
+            ),
+            const Divider(height: spacingLg),
+
+            Builder(
+              builder: (context) {
+                return Column(
+                  children: [
+                    _buildPriceRow(
+                      'Flat Pithoragarh Booking & Travel Fee',
+                      '₹${baseRate.toStringAsFixed(0)}',
+                    ),
+                    if (isMep) ...[
+                      _buildPriceRow(
+                        '$_pointCount Points · ${_isRoughIn ? "Jhirri/Conduit" : "Fitting"} Material',
+                        '₹${materialCost.toStringAsFixed(0)}',
+                      ),
+                      _buildPriceRow('Workforce Wage ($_mistriCount Karigar + $_beldarCount Helper)', '₹${laborCost.toStringAsFixed(0)}'),
+                    ] else if (isFinishing) ...[
+                      _buildPriceRow(
+                        '$_finishType Material & Finishing',
+                        '₹${materialCost.toStringAsFixed(0)}',
+                      ),
+                      _buildPriceRow('Workforce Wage ($_mistriCount Karigar + $_beldarCount Helper)', '₹${laborCost.toStringAsFixed(0)}'),
+                    ] else ...[
+                      _buildPriceRow(
+                        _includeMaterial
+                            ? '$_selectedMaterial Material Cost'
+                            : 'Material Cost (Procured by Customer)',
+                        _includeMaterial
+                            ? '₹${materialCost.toStringAsFixed(0)}'
+                            : '₹0',
+                      ),
+                      _buildPriceRow('Workforce Wage ($_mistriCount Mistri + $_beldarCount Beldar)', '₹${laborCost.toStringAsFixed(0)}'),
+                    ],
+                  ],
+                );
+              }
+            ),
             const Divider(height: spacingLg),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -981,11 +1696,11 @@ class _RequirementIntakeScreenState extends ConsumerState<RequirementIntakeScree
                 const SizedBox(width: spacingXs),
                 Expanded(
                   child: Text(
-                    serviceType == 'mep'
-                        ? 'Note: Wages calculated as per standard electrical & plumbing daily rates in India (₹750/day Plumber/Electrician).'
-                        : (serviceType == 'finishing'
-                            ? 'Note: Wages calculated as per standard carpentry & painting daily rates in India (₹850/day skilled Karigar).'
-                            : 'Note: Wages calculated as per standard daily rates in India (₹800/day Raj Mistri, ₹450/day Beldar).'),
+                    serviceType == 'electrical' || serviceType == 'plumbing' || serviceType == 'mep'
+                        ? 'Note: Wages calculated as per fixed daily rates in Pithoragarh (₹${config.mistriDailyWage.toStringAsFixed(0)}/day Plumber/Electrician).'
+                        : (serviceType == 'carpentry' || serviceType == 'painting' || serviceType == 'flooring' || serviceType == 'finishing'
+                            ? 'Note: Wages calculated as per fixed daily rates in Pithoragarh (₹${config.mistriDailyWage.toStringAsFixed(0)}/day ${serviceType == "carpentry" ? "Badhai" : (serviceType == "painting" ? "Painter" : "Flooring Mistri")}).'
+                            : 'Note: Wages calculated as per fixed daily rates in Pithoragarh (₹${config.mistriDailyWage.toStringAsFixed(0)}/day Raj Mistri, ₹${config.beldarDailyWage.toStringAsFixed(0)}/day Beldar).'),
                     style: const TextStyle(color: kMuted, fontSize: 10),
                   ),
                 ),
@@ -994,6 +1709,24 @@ class _RequirementIntakeScreenState extends ConsumerState<RequirementIntakeScree
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildLegendItem(String label, Color color) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 10, color: kMuted, fontWeight: FontWeight.w600),
+        ),
+      ],
     );
   }
 
@@ -1029,13 +1762,13 @@ class _RequirementIntakeScreenState extends ConsumerState<RequirementIntakeScree
             Expanded(
               child: ElevatedButton(
                 onPressed: () {
-                  if (_currentStep < 2) {
+                  if (_currentStep < 1) {
                     setState(() => _currentStep++);
                   } else {
                     _submitRequirements(defaultPackageId, serviceType);
                   }
                 },
-                child: Text(_currentStep < 2 ? 'Continue' : 'Verify & Book'),
+                child: Text(_currentStep < 1 ? 'Continue' : 'Verify & Book'),
               ),
             ),
           ],

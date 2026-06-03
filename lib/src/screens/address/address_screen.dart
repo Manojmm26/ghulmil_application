@@ -30,24 +30,55 @@ class _AddressScreenState extends ConsumerState<AddressScreen> {
   bool _showManualEntry = false;
   bool _hasLocationPermission = false;
 
-  // Mock saved addresses localized to Noida launchpad (Gautam Buddha Nagar, UP)
+  // Offline-first Pithoragarh Address Database
+  final List<Map<String, String>> _pithoragarhDatabase = const [
+    {'name': 'Siltham Chauraha, Bhatkot', 'pincode': '262501', 'landmark': 'Near Petrol Pump'},
+    {'name': 'Link Road, Naya Bazar', 'pincode': '262501', 'landmark': 'Near SBI Branch'},
+    {'name': 'Purana Bazar, Dharamshala', 'pincode': '262501', 'landmark': 'Near Ramlila Ground'},
+    {'name': 'GIC Road, Kumaur', 'pincode': '262501', 'landmark': 'Near Govt Inter College'},
+    {'name': 'Wadda Village', 'pincode': '262501', 'landmark': 'Main Market'},
+    {'name': 'Bhatkot Area', 'pincode': '262501', 'landmark': 'Near G.B. Pant Park'},
+    {'name': 'Gurna Temple Area', 'pincode': '262501', 'landmark': 'Near National Highway'},
+    {'name': 'Munsyari Town Center', 'pincode': '262502', 'landmark': 'Near Bus Stand'},
+    {'name': 'Sarmoli Village', 'pincode': '262502', 'landmark': 'Near Homestay Association'},
+    {'name': 'Darkot Craft Village', 'pincode': '262502', 'landmark': 'Near Shawl Weavers Association'},
+    {'name': 'Madkot Hot Springs', 'pincode': '262502', 'landmark': 'Near Gori Ganga River'},
+    {'name': 'Dharchula Town', 'pincode': '262510', 'landmark': 'Near Indo-Nepal Suspension Bridge'},
+    {'name': 'Tawaghat Junction', 'pincode': '262510', 'landmark': 'Near Dhauliganga Dam'},
+    {'name': 'Baluakot Bazar', 'pincode': '262510', 'landmark': 'Near Kali River Bank'},
+    {'name': 'Jauljibi Border Trade Area', 'pincode': '262510', 'landmark': 'Near Trade Ground'},
+    {'name': 'Didihat Town Dharamgarh Road', 'pincode': '262520', 'landmark': 'Near Tehsil Headquarters'},
+    {'name': 'Sandev Temple Hill', 'pincode': '262520', 'landmark': 'Near View Point'},
+    {'name': 'Adicha Village', 'pincode': '262520', 'landmark': 'Near Primary School'},
+    {'name': 'Gangolihat Haat Kalika Temple', 'pincode': '262530', 'landmark': 'Near Main Entrance Gate'},
+    {'name': 'Patal Bhuvaneshwar Caves', 'pincode': '262530', 'landmark': 'Near Cave Temple Office'},
+    {'name': 'Berinag Tea Garden Road', 'pincode': '262540', 'landmark': 'Near Tea Factory'},
+    {'name': 'Tripura Devi Bazar', 'pincode': '262540', 'landmark': 'Near Highway Temple'},
+  ];
+
+  // Search auto-complete state
+  final _searchController = TextEditingController();
+  List<Map<String, String>> _filteredSuggestions = [];
+  bool _showSuggestions = false;
+
+  // Mock saved addresses localized to Pithoragarh launchpad (Uttarakhand)
   final List<Address> _savedAddresses = [
     Address(
       id: 'addr_1',
-      line1: 'C-20, Sector 62',
-      line2: 'Noida',
-      city: 'Gautam Buddha Nagar',
-      state: 'Uttar Pradesh',
-      postalCode: '201301',
+      line1: 'Link Road, near Siltham',
+      line2: 'Pithoragarh',
+      city: 'Pithoragarh',
+      state: 'Uttarakhand',
+      postalCode: '262501',
       country: 'India',
     ),
     Address(
       id: 'addr_2',
-      line1: 'House 145, Sector 15',
-      line2: 'Noida',
-      city: 'Gautam Buddha Nagar',
-      state: 'Uttar Pradesh',
-      postalCode: '201301',
+      line1: 'Dharamgarh Road, near Post Office',
+      line2: 'Didihat',
+      city: 'Pithoragarh',
+      state: 'Uttarakhand',
+      postalCode: '262501',
       country: 'India',
     ),
   ];
@@ -70,6 +101,7 @@ class _AddressScreenState extends ConsumerState<AddressScreen> {
     _postalCodeController.dispose();
     _accessNotesController.dispose();
     _gateCodeController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -171,22 +203,87 @@ class _AddressScreenState extends ConsumerState<AddressScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Address Autocomplete (placeholder for Google Places)
+          // Address Autocomplete (Offline-first Local Search Index for Pithoragarh)
           TextFormField(
-            decoration: const InputDecoration(
-              labelText: 'Search Address',
-              hintText: 'Enter address or use current location',
-              prefixIcon: Icon(Icons.search),
-              suffixIcon: Icon(Icons.my_location),
+            controller: _searchController,
+            decoration: InputDecoration(
+              labelText: 'Search Local Village / Landmark (Pithoragarh)',
+              hintText: 'e.g. Siltham, Sarmoli, Haat Kalika...',
+              prefixIcon: const Icon(Icons.search, color: kPrimary),
+              suffixIcon: _searchController.text.isNotEmpty 
+                ? IconButton(
+                    icon: const Icon(Icons.clear, size: 18),
+                    onPressed: () {
+                      setState(() {
+                        _searchController.clear();
+                        _filteredSuggestions = [];
+                        _showSuggestions = false;
+                      });
+                    },
+                  )
+                : const Icon(Icons.my_location, color: kPrimary),
             ),
-            onTap: () {
-              // TODO: Implement Google Places autocomplete
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Google Places integration coming soon')),
-              );
+            onChanged: (val) {
+              if (val.trim().isEmpty) {
+                setState(() {
+                  _filteredSuggestions = [];
+                  _showSuggestions = false;
+                });
+                return;
+              }
+              final query = val.toLowerCase().trim();
+              final matches = _pithoragarhDatabase.where((item) {
+                return item['name']!.toLowerCase().contains(query) ||
+                       item['pincode']!.contains(query);
+              }).toList();
+              setState(() {
+                _filteredSuggestions = matches;
+                _showSuggestions = matches.isNotEmpty;
+              });
             },
-            validator: (value) => value!.isEmpty ? ValidationMessages.requiredField : null,
+            validator: (value) => _line1Controller.text.isEmpty ? ValidationMessages.requiredField : null,
           ),
+          if (_showSuggestions) ...[
+            const SizedBox(height: spacingXs),
+            Card(
+              elevation: 4,
+              color: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              child: Container(
+                constraints: const BoxConstraints(maxHeight: 200),
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  padding: EdgeInsets.zero,
+                  itemCount: _filteredSuggestions.length,
+                  itemBuilder: (context, index) {
+                    final suggestion = _filteredSuggestions[index];
+                    return ListTile(
+                      dense: true,
+                      leading: const Icon(Icons.location_on_outlined, color: kPrimary, size: 18),
+                      title: Text(
+                        suggestion['name']!,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: kTextPrimary),
+                      ),
+                      subtitle: Text(
+                        'PIN: ${suggestion['pincode']!} · ${suggestion['landmark']!}',
+                        style: const TextStyle(fontSize: 10, color: kMuted),
+                      ),
+                      onTap: () {
+                        setState(() {
+                          _searchController.text = suggestion['name']!;
+                          _line1Controller.text = suggestion['name']!;
+                          _line2Controller.text = suggestion['landmark']!;
+                          _cityController.text = 'Pithoragarh';
+                          _postalCodeController.text = suggestion['pincode']!;
+                          _showSuggestions = false;
+                        });
+                      },
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: spacing),
 
           // Manual address fields
@@ -221,7 +318,7 @@ class _AddressScreenState extends ConsumerState<AddressScreen> {
                       return ValidationMessages.requiredField;
                     }
                     if (!LocationGatingService.isPincodeServiced(value)) {
-                      return 'Active only in Gautam Buddha Nagar (UP)';
+                      return 'Active only in Pithoragarh (Uttarakhand)';
                     }
                     return null;
                   },
