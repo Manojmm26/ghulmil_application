@@ -162,3 +162,5 @@ For support and questions:
 ---
 
 **Built with ❤️ using Flutter**
+
+License: All Rights Reserved by Manojsmehta6996
